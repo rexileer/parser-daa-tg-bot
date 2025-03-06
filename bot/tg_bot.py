@@ -15,6 +15,7 @@ from aiogram.client.bot import DefaultBotProperties
 from dotenv import load_dotenv
 
 from commands import start_command
+from handlers import monitoring_handler
 
 import logging
 
@@ -38,6 +39,7 @@ async def main():
     
     dp.include_routers(
         start_command.router,
+        monitoring_handler.router,
     )
     
     await bot.delete_webhook(drop_pending_updates=True)
