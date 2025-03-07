@@ -17,10 +17,19 @@ def filters_keyboard():
     
     # Добавление кнопок на клавиатуру
     for filter_row in filters:
-        buttons = [InlineKeyboardButton(text=filter_name, callback_data=filter_name) for filter_name in filter_row]
+        buttons = [
+            InlineKeyboardButton(
+                text=filter_name, 
+                callback_data=f"filter_{filter_name.lower().replace(' ', '_')}"
+            ) 
+            for filter_name in filter_row
+        ]
         inline_keyboard.append(buttons)
     
-    # Создание и возврат клавиатуры
-    keyboard = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+    # Добавляем кнопку "Применить фильтры"
+    inline_keyboard.append([
+        InlineKeyboardButton(text="✅ Применить фильтры", callback_data="apply_filters")
+    ])
     
-    return keyboard
+    # Создание и возврат клавиатуры
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
