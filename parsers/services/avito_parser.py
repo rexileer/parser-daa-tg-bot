@@ -19,9 +19,9 @@ def parse_avito(filters=None):
     options = webdriver.ChromeOptions()
     
     try:
-        ua = UserAgent().chrome
-    except FakeUserAgentError:
         ua = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/112.0"
+    except FakeUserAgentError:
+        ua = UserAgent().chrome
     options.add_argument(f'user-agent={ua}')
     
     options.add_argument('start-maximized')
@@ -65,19 +65,34 @@ def parse_avito(filters=None):
         
         # Взаимодействие с фильтрами
         try:
-            price_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[data-marker='price-to/input']")))
+            # Ввод min цены с учетом случайных задержек
+            price_from_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[data-marker='price-from/input']")))
             
-            # Ввод цены с учетом случайных задержек
-            driver.execute_script("arguments[0].focus();", price_input)
+            driver.execute_script("arguments[0].focus();", price_from_input)
             human_delay(1, 2)
-            price_input.clear()
+            price_from_input.clear()
             human_delay(1, 2)
-            for char in "100000":
-                price_input.send_keys(char)
+            for char in "1000000":
+                price_from_input.send_keys(char)
                 human_delay(0.1, 0.2)
-            driver.execute_script("arguments[0].dispatchEvent(new Event('blur'));", price_input)
+            driver.execute_script("arguments[0].dispatchEvent(new Event('blur'));", price_from_input)
             human_delay(1, 2)
-            driver.execute_script("arguments[0].dispatchEvent(new Event('input'));", price_input)
+            driver.execute_script("arguments[0].dispatchEvent(new Event('input'));", price_from_input)
+            
+            
+            # Ввод max цены с учетом случайных задержек
+            price_to_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[data-marker='price-to/input']")))
+            
+            driver.execute_script("arguments[0].focus();", price_to_input)
+            human_delay(1, 2)
+            price_to_input.clear()
+            human_delay(1, 2)
+            for char in "1200000":
+                price_to_input.send_keys(char)
+                human_delay(0.1, 0.2)
+            driver.execute_script("arguments[0].dispatchEvent(new Event('blur'));", price_to_input)
+            human_delay(1, 2)
+            driver.execute_script("arguments[0].dispatchEvent(new Event('input'));", price_to_input)
             
             logger.info("Input price")
             human_delay()
