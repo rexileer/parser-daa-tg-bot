@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-from fake_useragent import UserAgent
+from fake_useragent import UserAgent, FakeUserAgentError
 
 def human_delay(min_time=2, max_time=5):
     """Добавляет случайную задержку между действиями для имитации человеческого поведения."""
@@ -15,9 +15,15 @@ def human_delay(min_time=2, max_time=5):
 
 def parse_avito(filters=None):
     """Основная функция для парсинга объявлений на Avito."""
+    # Инициализация опций драйвера
     options = webdriver.ChromeOptions()
-    ua = UserAgent()
-    # options.add_argument(f'user-agent={ua.random}')  # Установка случайного User-Agent
+    
+    try:
+        ua = UserAgent().chrome
+    except FakeUserAgentError:
+        ua = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/112.0"
+    options.add_argument(f'user-agent={ua}')
+    
     options.add_argument('start-maximized')
     options.add_argument('--disable-gpu')
     options.add_argument('--no-sandbox')
@@ -27,13 +33,16 @@ def parse_avito(filters=None):
     options.add_experimental_option('excludeSwitches', ['enable-automation'])
     options.add_experimental_option('useAutomationExtension', False)
 
+    # Инициализация драйвера
     driver = webdriver.Chrome(options=options)
     driver.implicitly_wait(10)
     
+    # Инициализация логгера
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
     try:
+        # Открытие Avito с новыми автомобилями
         url = "https://www.avito.ru/all/avtomobili?s=104"
         logger.info("Opening avito.ru")
         driver.get(url)
@@ -73,6 +82,8 @@ def parse_avito(filters=None):
             logger.info("Input price")
             human_delay()
 
+
+            # Нажатие на кнопку "Применить"
             submit_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-marker='search-filters/submit-button']")))
             human_delay(1, 2)
             driver.execute_script("arguments[0].focus();", submit_button)
@@ -85,8 +96,8 @@ def parse_avito(filters=None):
         # Скроллинг страницы с случайным смещением
         actions = ActionChains(driver)
         for _ in range(random.randint(3, 7)):
-            offset_x = random.randint(50, 200)  # Ограничьте максимальное смещение по X
-            offset_y = random.randint(50, 200)  # Ограничьте максимальное смещение по Y
+            offset_x = random.randint(50, 200)
+            offset_y = random.randint(50, 200)
             actions.move_by_offset(offset_x, offset_y).perform()
             driver.execute_script("window.scrollBy(0, arguments[0]);", random.randint(100, 300))
             logger.info("Scrolling")
@@ -112,8 +123,10 @@ def parse_avito(filters=None):
         logger.info("Cookies saved")
 
     except Exception as ex:
+        # Обработка ошибок
         logger.error(f"Unhandled error: {ex}")
     finally:
+        # Закрытие драйвера
         driver.quit()
         logger.info("Driver closed")
 
