@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
 from fake_useragent import UserAgent, FakeUserAgentError
 
 class AvitoParser:
@@ -103,13 +104,6 @@ class AvitoParser:
         self._human_delay(1, 3)
         
         try:
-            # Проверка наличия цены, если её нет, значит это объявление не завершено
-            price = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-marker='item-view/item-price-container'] span"))
-            )
-            if not price:
-                self.logger.info("Skipping ad: price is missing.")
-                return  # Пропускаем это объявление
             images = [img.get_attribute('src') for img in self.driver.find_elements(By.CSS_SELECTOR, "img")[:3]]
             details = {
                 'title': ad['title'],
@@ -127,33 +121,43 @@ class AvitoParser:
     
     def parse(self):
         try:
-            url = "https://www.avito.ru/all/avtomobili?s=104"
-            self.logger.info("Opening avito.ru")
-            self.driver.get(url)
-            self.driver.set_page_load_timeout(60)
-            self.logger.info("Opened avito.ru")
-            self._human_delay()
-            
-            # Ожидание появления объявлений
-            try:
-                WebDriverWait(self.driver, 20).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-marker='item']"))
-                )
-                self.logger.info("Объявления загружены, начинаем парсинг")
-            except Exception as e:
-                self.logger.error(f"Ошибка ожидания объявлений: {e}")
-                return  # Можно выйти из метода, если объявления так и не загрузились
-            
-            new_ads = self._parse_ads()
-            
-            # Парсинг деталей
-            count = 0
-            for ad in new_ads:
-                count += 1
-                self.logger.info(f"Processing ad {count}/{len(new_ads)}")
-                details = self._parse_details(ad)
-                if details:
-                    self.logger.info(f"New ad: {details}")
+            while True:
+                url = "https://www.avito.ru/all/avtomobili?s=104"
+                self.logger.info("Opening avito.ru")
+                self.driver.get(url)
+                self.driver.set_page_load_timeout(60)
+                self.logger.info("Opened avito.ru")
+                self._human_delay()
+                
+                # Ожидание появления объявлений
+                try:
+                    WebDriverWait(self.driver, 20).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-marker='item']"))
+                    )
+                    self.logger.info("Объявления загружены, начинаем парсинг")
+                except Exception as e:
+                    self.logger.error(f"Ошибка ожидания объявлений: {e}")
+                    return  # Можно выйти из метода, если объявления так и не загрузились
+                
+                new_ads = self._parse_ads()
+                
+                # Парсинг деталей
+                if new_ads:
+                    count = 0
+                    for ad in new_ads:
+                        try:
+                            count += 1
+                            self.logger.info(f"Processing ad {count}/{len(new_ads)}")
+                            details = self._parse_details(ad)
+                            if details:
+                                self.logger.info(f"New ad: {details}")
+                        except Exception as ex:
+                            self.logger.error(f"Error processing ad: {ex}")
+                            continue
+                else:
+                    self.logger.info("No new ads found.")
+                    self._human_delay(15, 30)
+                
         
         except Exception as ex:
             self.logger.error(f"Unhandled error: {ex}")
