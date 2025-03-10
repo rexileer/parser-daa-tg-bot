@@ -25,7 +25,7 @@ class AvitoParser:
         except FakeUserAgentError:
             ua = UserAgent().chrome
         options.add_argument(f'user-agent={ua}')
-        options.add_argument('--headless')
+        # options.add_argument('--headless')
         options.add_argument('start-maximized')
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
@@ -107,16 +107,45 @@ class AvitoParser:
     
     def _parse_details(self, ad):
         self.driver.get(ad['link'])
+        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
         self._human_mouse(1, 2)
         self._human_delay(1, 3)
         
+        
         try:
-            image = [img.get_attribute('src') for img in self.driver.find_elements(By.CSS_SELECTOR, "img")[:1]]
+            # Функция для безопасного извлечения текста
+            def safe_find_text(selector, by=By.XPATH):
+                try:
+                    element = self.driver.find_element(by, selector)
+                    text = element.text.strip()
+                    self.logger.info(f"Extracted text for {selector}: {text}")
+                    return text
+                except Exception as e:
+                    self.logger.warning(f"Failed to extract {selector}: {e}")
+                    return ""
+            
+            # Парсинг деталей
+            image = self.driver.find_element(By.CSS_SELECTOR, "img").get_attribute("src")
             details = {
-                'title': ad['title'],
-                'price': ad['price'],
-                'link': ad['link'],
-                'image': image
+                "title": ad['title'],
+                "price": ad['price'],
+                "link": ad['link'],
+                "image": image,
+                "platform" : "avito",
+                "brand": safe_find_text("//li[span[contains(text(), 'Марка')]]/span/following-sibling::span"),
+                "engine": safe_find_text("li:has(span:contains('Модификация')) span:nth-child(2)", By.CSS_SELECTOR),
+                "mileage": safe_find_text("//li[span[contains(text(), 'Пробег')]]/span/following-sibling::span"),
+                "gearbox": safe_find_text("//li[span[contains(text(), 'Коробка передач')]]/span/following-sibling::span"),
+                "owners": safe_find_text("//li[span[contains(text(), 'Владельцы')]]/span/following-sibling::span"),
+                "condition": safe_find_text("//li[span[contains(text(), 'Состояние')]]/span/following-sibling::span"),
+                "seller": safe_find_text("//li[span[contains(text(), 'Продавец')]]/span/following-sibling::span"),
+                "city": safe_find_text("//span[@data-marker='delivery-item-title']/span"),
+                "year": safe_find_text("//li[span[contains(text(), 'Год выпуска')]]/span/following-sibling::span"),
+                "body_type": safe_find_text("//li[span[contains(text(), 'Тип кузова')]]/span/following-sibling::span"),
+                "color": safe_find_text("//li[span[contains(text(), 'Цвет')]]/span/following-sibling::span"),
+                "drive": safe_find_text("//li[span[contains(text(), 'Привод')]]/span/following-sibling::span"),
+                "steering": safe_find_text("//li[span[contains(text(), 'Руль')]]/span/following-sibling::span"),
+                "ad_type": safe_find_text("//li[span[contains(text(), 'Тип объявления')]]/span/following-sibling::span"),
             }
             ad_id = self._extract_avito_id(ad['link'])
             self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
@@ -136,6 +165,7 @@ class AvitoParser:
                 self.driver.get(url)
                 self.driver.implicitly_wait(10)  # Делаем ожидания для загрузки элементов
                 self.logger.info("Opened avito.ru")
+                self._human_mouse(1, 2)
                 self._human_delay()
                 
                 # Ожидание появления объявлений
@@ -166,11 +196,12 @@ class AvitoParser:
                             continue
                 else:
                     self.logger.info("No new ads found.")
+                    self._human_delay(5, 10) # дополнительная задержка после отсутствия новых объявлений
                 
-                self._human_delay(15, 30)
-                self.driver.delete_all_cookies()  # Очистить cookies после каждого запроса
+                self._human_delay(7, 15)
+                # self.driver.delete_all_cookies()  # Очистить cookies после каждого запроса
                 
-        
+                        
         except Exception as ex:
             self.logger.error(f"Unhandled error: {ex}")
         finally:
