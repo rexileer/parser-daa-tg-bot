@@ -1,6 +1,6 @@
 import time
 import random
-import pickle
+import re
 import logging
 import redis
 from selenium import webdriver
@@ -25,7 +25,7 @@ class AvitoParser:
         except FakeUserAgentError:
             ua = UserAgent().chrome
         options.add_argument(f'user-agent={ua}')
-        # options.add_argument('--headless')
+        options.add_argument('--headless')
         options.add_argument('start-maximized')
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
@@ -49,6 +49,12 @@ class AvitoParser:
     def _init_logger(self):
         logging.basicConfig(level=logging.INFO)
         return logging.getLogger(__name__)
+    
+    def _extract_avito_id(self, url: str) -> str | None:
+        match = re.search(r'(\d+)(?=\?)', url)  # Ищем число перед ?
+        if not match:
+            match = re.search(r'(\d+)$', url)  # Ищем число в конце строки
+        return match.group(1) if match else None
     
     def _human_delay(self, min_time=2, max_time=5):
         time.sleep(random.uniform(min_time, max_time))
@@ -81,14 +87,15 @@ class AvitoParser:
         ads = self.driver.find_elements(By.CSS_SELECTOR, "div[data-marker='item']")
         new_ads = []
         
-        for ad in ads:
+        for ad in ads[:10]:
             try:
                 link = ad.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-                if not self.redis_client.exists(f"ad:{link}"):
+                ad_id = self._extract_avito_id(link)
+                self.logger.info(f"Processing ad {ad_id}")
+                if not self.redis_client.exists(f"ad:{ad_id}"):
                     title = ad.find_element(By.CSS_SELECTOR, "h3").text
                     price = ad.find_element(By.CSS_SELECTOR, "p[data-marker='item-price'] span").text
                     new_ads.append({'title': title, 'price': price, 'link': link})
-                    self.redis_client.setex(f"ad:{link}", 1800, "pending")  # TTL 0.5 часа
             except Exception as ex:
                 self.logger.error(f"Error processing ad: {ex}")
                 continue
@@ -104,14 +111,16 @@ class AvitoParser:
         self._human_delay(1, 3)
         
         try:
-            images = [img.get_attribute('src') for img in self.driver.find_elements(By.CSS_SELECTOR, "img")[:3]]
+            image = [img.get_attribute('src') for img in self.driver.find_elements(By.CSS_SELECTOR, "img")[:1]]
             details = {
                 'title': ad['title'],
                 'price': ad['price'],
                 'link': ad['link'],
-                'images': images
+                'image': image
             }
-            self.redis_client.setex(f"ad:{ad['link']}", 1800, str(details))  # Сохранение объявления в Redis
+            ad_id = self._extract_avito_id(ad['link'])
+            self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
+            self.logger.info(f"Saved ad {ad_id} to Redis")
             return details
         except Exception as ex:
             self.logger.error(f"Error parsing ad details: {ex}")
@@ -125,7 +134,7 @@ class AvitoParser:
                 url = "https://www.avito.ru/all/avtomobili?s=104"
                 self.logger.info("Opening avito.ru")
                 self.driver.get(url)
-                self.driver.set_page_load_timeout(60)
+                self.driver.implicitly_wait(10)  # Делаем ожидания для загрузки элементов
                 self.logger.info("Opened avito.ru")
                 self._human_delay()
                 
@@ -151,12 +160,15 @@ class AvitoParser:
                             details = self._parse_details(ad)
                             if details:
                                 self.logger.info(f"New ad: {details}")
+                            self._human_delay(5, 10)
                         except Exception as ex:
                             self.logger.error(f"Error processing ad: {ex}")
                             continue
                 else:
                     self.logger.info("No new ads found.")
-                    self._human_delay(15, 30)
+                
+                self._human_delay(15, 30)
+                self.driver.delete_all_cookies()  # Очистить cookies после каждого запроса
                 
         
         except Exception as ex:
