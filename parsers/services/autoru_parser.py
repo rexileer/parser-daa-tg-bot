@@ -89,11 +89,9 @@ class AutoruParser:
         for ad in ads[:10]:
             try:
                 link = ad.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-                self.logger.info(f"Link: {link}")
                 ad_id = self._extract_drom_id(link)
                 self.logger.info(f"Processing ad {ad_id}")
                 if not self.redis_client.exists(f"ad:{ad_id}"):
-                    # price = ad.find_element(By.CSS_SELECTOR, "div[class='ListingItemPrice__content']").text
                     new_ads.append({'link': link})
             except Exception as ex:
                 self.logger.error(f"Error processing ad: {ex}")
@@ -104,25 +102,35 @@ class AutoruParser:
 
         return new_ads
     
+    def _parse_characteristics(self):
+        characteristics = {}
+        exclude_values = {"Неизвестно", "Нет данных"}
+        try:
+            li_elements = self.driver.find_elements(By.CSS_SELECTOR, "li[class^='CardInfoRow']")
+            for li in li_elements:
+                try:
+                    item = li.find_elements(By.TAG_NAME, "div")
+                    if item:
+                        key = item[0].text
+                        value = item[1].text
+                        if key and value and value not in exclude_values:
+                            characteristics[key] = value
+                        else:
+                            print(f"⚠️ Проблема с разбором: {li.get_attribute('outerHTML')}")
+                except Exception as e:
+                    print(f"❌ Ошибка при обработке {li.get_attribute('outerHTML')}: {e}")
+        except Exception as e:
+            print(f"❌ Ошибка при парсинге характеристик: {e}")
+        return characteristics
+    
+    
     def _parse_details(self, ad):
         self.driver.get(ad['link'])
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
         self._human_mouse(1, 2)
         self._human_delay(1, 3)
         
-        
         try:
-            # Функция для безопасного извлечения текста
-            def safe_find_text(selector, by=By.XPATH):
-                try:
-                    element = self.driver.find_element(by, selector)
-                    text = element.text.strip()
-                    self.logger.info(f"Extracted text for {selector}: {text}")
-                    return text
-                except Exception as e:
-                    self.logger.warning(f"Failed to extract {selector}: {e}")
-                    return ""
-            
             # Парсинг деталей
             details = {
                 "title": self.driver.find_element(By.CSS_SELECTOR, "h1").text,
@@ -130,6 +138,7 @@ class AutoruParser:
                 "link": ad['link'],
                 "image": self.driver.find_element(By.CSS_SELECTOR, "img[class='ImageGalleryDesktop__image']").get_attribute("src"),
                 "platform" : "autoru",
+                "characteristics": self._parse_characteristics(),
             }
             ad_id = self._extract_drom_id(ad['link'])
             self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
@@ -147,7 +156,7 @@ class AutoruParser:
             accept_cookies.click()
             self.logger.info("Cookies accepted")
         except Exception as e:
-            self.logger.error(f"Error accepting cookies: {e}")
+            self.logger.info(f"Not able to accepting cookies")
     
     def parse(self):
         try:
@@ -157,12 +166,9 @@ class AutoruParser:
                 self.driver.get(url)
                 self.driver.implicitly_wait(10)  # Делаем ожидания для загрузки элементов
                 self.logger.info("Opened auto.ru")
-                try:
-                    self._cookies_accept()
-                except Exception as e:
-                    self.logger.error(f"Not able to accept cookies: {e}")
-                self._human_mouse(1, 2)
+                self._cookies_accept()
                 self._human_delay()
+                self._human_mouse(1, 2)
                 
                 # Ожидание появления объявлений
                 try:
