@@ -105,6 +105,7 @@ class AvitoParser:
     
     def _parse_characteristics(self):
         characteristics = {}
+        exclude_values = {"Проверить в Автотеке", "Неизвестно", "Нет данных"}
 
         try:
             li_elements = self.driver.find_elements(By.CSS_SELECTOR, "li[class^='params-paramsList__item']")
@@ -120,7 +121,7 @@ class AvitoParser:
                         full_text = li.text.strip()
                         value = full_text.replace(spans[0].text, "").strip(":").strip()
 
-                        if key and value:
+                        if key and value and value not in exclude_values:
                             characteristics[key] = value
                         else:
                             print(f"⚠️ Проблема с разбором: {li.get_attribute('outerHTML')}")
