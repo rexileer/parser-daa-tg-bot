@@ -56,6 +56,14 @@ class DromParser:
             match = re.search(r'(\d+)$', url)  # Ищем число в конце строки
         return match.group(1) if match else None
     
+    def _extract_info(self, url: str) -> str | None:
+        pattern = r'https://auto.drom.ru/([^/]+)/([^/]+)/([^/]+)/\d+.html'
+        match = re.match(pattern, url)
+        if match:
+            city, brand, model = match.groups()
+            return [city, brand, model]
+        return None
+    
     def _human_delay(self, min_time=2, max_time=5):
         time.sleep(random.uniform(min_time, max_time))
         
@@ -112,18 +120,12 @@ class DromParser:
         exclude_values = {"Неизвестно", "Нет данных"}
 
         try:
-            self.logger.info("Ожидаем загрузку таблицы...")
-
-            # Ожидаем, что таблица будет загружена (если таблица большая)
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "table[class^='css-xalqz7']"))
             )
-
             self.logger.info("Таблица загружена, начинаем обработку строк...")
-
             # Получаем все строки таблицы
             tr_elements = self.driver.find_elements(By.CSS_SELECTOR, "table[class^='css-xalqz7'] tbody tr")
-            self.logger.info(f"Найдено строк: {len(tr_elements)}")
 
             # Теперь обрабатываем строки
             for tr in tr_elements:
@@ -132,17 +134,12 @@ class DromParser:
                     value_element = tr.find_elements(By.TAG_NAME, "td")
 
                     if key_element and value_element:
-                        self.logger.info(f"Найдены элементы: key, value")
                         key = key_element[0].text.strip()  # Извлекаем ключ
-                        self.logger.info(f"Ключ: {key}")
                         if not key:
                             self.logger.info(f"Пропускаем строку с пустым ключом: {tr.get_attribute('outerHTML')}")
                             continue
-
                         value = value_element[0].text.strip()  # Извлекаем значение
-                        self.logger.info(f"Значение: {value}")
                         if value:
-
                             # Исключаем значения из списка exclude_values
                             if value not in exclude_values:
                                 characteristics[key] = value
@@ -175,13 +172,16 @@ class DromParser:
         try:
             # Парсинг деталей
             image = self.driver.find_element(By.CSS_SELECTOR, "img[class='css-qy78xy evrha4s0']").get_attribute("src")
-            self.logger.info(f"Extracted image URL: {image}")
+            extracted_info = self._extract_info(ad['link'])
             details = {
                 "title": ad['title'],
                 "price": ad['price'],
                 "link": ad['link'],
                 "image": image,
                 "platform" : "drom",
+                "city": extracted_info[0] if extracted_info else None,
+                "brand": extracted_info[1] if extracted_info else None,
+                "model": extracted_info[2] if extracted_info else None,
                 "characteristics": self._parse_characteristics(),
             }
             ad_id = self._extract_drom_id(ad['link'])
