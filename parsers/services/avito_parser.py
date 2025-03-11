@@ -25,7 +25,7 @@ class AvitoParser:
         except FakeUserAgentError:
             ua = UserAgent().chrome
         options.add_argument(f'user-agent={ua}')
-        # options.add_argument('--headless')
+        options.add_argument('--headless')
         options.add_argument('start-maximized')
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
@@ -132,20 +132,20 @@ class AvitoParser:
                 "link": ad['link'],
                 "image": image,
                 "platform" : "avito",
-                "brand": safe_find_text("//li[span[contains(text(), 'Марка')]]/span/following-sibling::span"),
-                "engine": safe_find_text("li:has(span:contains('Модификация')) span:nth-child(2)", By.CSS_SELECTOR),
-                "mileage": safe_find_text("//li[span[contains(text(), 'Пробег')]]/span/following-sibling::span"),
-                "gearbox": safe_find_text("//li[span[contains(text(), 'Коробка передач')]]/span/following-sibling::span"),
-                "owners": safe_find_text("//li[span[contains(text(), 'Владельцы')]]/span/following-sibling::span"),
-                "condition": safe_find_text("//li[span[contains(text(), 'Состояние')]]/span/following-sibling::span"),
-                "seller": safe_find_text("//li[span[contains(text(), 'Продавец')]]/span/following-sibling::span"),
-                "city": safe_find_text("//span[@data-marker='delivery-item-title']/span"),
-                "year": safe_find_text("//li[span[contains(text(), 'Год выпуска')]]/span/following-sibling::span"),
-                "body_type": safe_find_text("//li[span[contains(text(), 'Тип кузова')]]/span/following-sibling::span"),
-                "color": safe_find_text("//li[span[contains(text(), 'Цвет')]]/span/following-sibling::span"),
-                "drive": safe_find_text("//li[span[contains(text(), 'Привод')]]/span/following-sibling::span"),
-                "steering": safe_find_text("//li[span[contains(text(), 'Руль')]]/span/following-sibling::span"),
-                "ad_type": safe_find_text("//li[span[contains(text(), 'Тип объявления')]]/span/following-sibling::span"),
+                # "brand": safe_find_text("//li[span[contains(text(), 'Марка')]]/span/following-sibling::span"),
+                # "engine": safe_find_text("li:has(span:contains('Модификация')) span:nth-child(2)", By.CSS_SELECTOR),
+                # "mileage": safe_find_text("//li[span[contains(text(), 'Пробег')]]/span/following-sibling::span"),
+                # "gearbox": safe_find_text("//li[span[contains(text(), 'Коробка передач')]]/span/following-sibling::span"),
+                # "owners": safe_find_text("//li[span[contains(text(), 'Владельцы')]]/span/following-sibling::span"),
+                # "condition": safe_find_text("//li[span[contains(text(), 'Состояние')]]/span/following-sibling::span"),
+                # "seller": safe_find_text("//li[span[contains(text(), 'Продавец')]]/span/following-sibling::span"),
+                # "city": safe_find_text("//span[@data-marker='delivery-item-title']/span"),
+                # "year": safe_find_text("//li[span[contains(text(), 'Год выпуска')]]/span/following-sibling::span"),
+                # "body_type": safe_find_text("//li[span[contains(text(), 'Тип кузова')]]/span/following-sibling::span"),
+                # "color": safe_find_text("//li[span[contains(text(), 'Цвет')]]/span/following-sibling::span"),
+                # "drive": safe_find_text("//li[span[contains(text(), 'Привод')]]/span/following-sibling::span"),
+                # "steering": safe_find_text("//li[span[contains(text(), 'Руль')]]/span/following-sibling::span"),
+                # "ad_type": safe_find_text("//li[span[contains(text(), 'Тип объявления')]]/span/following-sibling::span"),
             }
             ad_id = self._extract_avito_id(ad['link'])
             self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
@@ -190,7 +190,7 @@ class AvitoParser:
                             details = self._parse_details(ad)
                             if details:
                                 self.logger.info(f"New ad: {details}")
-                            self._human_delay(5, 10)
+                            self._human_delay(2, 5)
                         except Exception as ex:
                             self.logger.error(f"Error processing ad: {ex}")
                             continue
@@ -198,14 +198,17 @@ class AvitoParser:
                     self.logger.info("No new ads found.")
                     self._human_delay(5, 10) # дополнительная задержка после отсутствия новых объявлений
                 
-                self._human_delay(7, 15)
+                self._human_delay(5, 10)
                 # self.driver.delete_all_cookies()  # Очистить cookies после каждого запроса
                 
                         
         except Exception as ex:
-            self.logger.error(f"Unhandled error: {ex}")
-        finally:
+            # При ошибке выход на 5 минут, после - повторный запуск
+            self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
             self.driver.quit()
+            self._human_delay(300, 350)
+            self.parse()
+        finally:
             self.logger.info("Driver closed")
 
 if __name__ == '__main__':
