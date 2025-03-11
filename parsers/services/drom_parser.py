@@ -160,8 +160,6 @@ class DromParser:
         return characteristics
 
 
-    
-    
     def _parse_details(self, ad):
         self.driver.get(ad['link'])
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
@@ -173,8 +171,11 @@ class DromParser:
             # Парсинг деталей
             image = self.driver.find_element(By.CSS_SELECTOR, "img[class='css-qy78xy evrha4s0']").get_attribute("src")
             extracted_info = self._extract_info(ad['link'])
+            title = ad.get('title', '')  # Получаем заголовок, если его нет — пустая строка
+            title_parts = title.rsplit(", ", 1)  # Разделяем строку по последней запятой
             details = {
-                "title": ad['title'],
+                "name": title_parts[0] if len(title_parts) > 1 else title,  # Если есть запятая — берем до нее, иначе весь title
+                "year": title_parts[1] if len(title_parts) > 1 else None,   # Если нет запятой — год не указан
                 "price": ad['price'],
                 "link": ad['link'],
                 "image": image,
