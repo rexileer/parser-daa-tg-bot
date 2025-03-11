@@ -8,12 +8,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import TimeoutException
 from fake_useragent import UserAgent, FakeUserAgentError
 
 class AvitoParser:
-    def __init__(self, filters=None, redis_host='localhost', redis_port=6379, redis_db=0):
-        self.filters = filters or {}
+    def __init__(self, redis_host='localhost', redis_port=6379, redis_db=0):
         self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
         self.driver = self._init_driver()
         self.logger = self._init_logger()
@@ -105,25 +103,44 @@ class AvitoParser:
 
         return new_ads
     
+    def _parse_characteristics(self):
+        characteristics = {}
+
+        try:
+            li_elements = self.driver.find_elements(By.CSS_SELECTOR, "li[class^='params-paramsList__item']")
+            
+            for li in li_elements:
+                try:
+                    spans = li.find_elements(By.TAG_NAME, "span")
+                    
+                    if spans:
+                        key = spans[0].text.strip().replace(":", "")
+                        
+                        # Удаляем текст первого <span> из общего текста <li>
+                        full_text = li.text.strip()
+                        value = full_text.replace(spans[0].text, "").strip(":").strip()
+
+                        if key and value:
+                            characteristics[key] = value
+                        else:
+                            print(f"⚠️ Проблема с разбором: {li.get_attribute('outerHTML')}")
+
+                except Exception as e:
+                    print(f"❌ Ошибка при обработке {li.get_attribute('outerHTML')}: {e}")
+
+        except Exception as e:
+            print(f"❌ Ошибка при парсинге характеристик: {e}")
+
+        return characteristics
+
+    
     def _parse_details(self, ad):
         self.driver.get(ad['link'])
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
         self._human_mouse(1, 2)
         self._human_delay(1, 3)
         
-        
-        try:
-            # Функция для безопасного извлечения текста
-            def safe_find_text(selector, by=By.XPATH):
-                try:
-                    element = self.driver.find_element(by, selector)
-                    text = element.text.strip()
-                    self.logger.info(f"Extracted text for {selector}: {text}")
-                    return text
-                except Exception as e:
-                    self.logger.warning(f"Failed to extract {selector}: {e}")
-                    return ""
-            
+        try:            
             # Парсинг деталей
             image = self.driver.find_element(By.CSS_SELECTOR, "img").get_attribute("src")
             details = {
@@ -132,20 +149,7 @@ class AvitoParser:
                 "link": ad['link'],
                 "image": image,
                 "platform" : "avito",
-                # "brand": safe_find_text("//li[span[contains(text(), 'Марка')]]/span/following-sibling::span"),
-                # "engine": safe_find_text("li:has(span:contains('Модификация')) span:nth-child(2)", By.CSS_SELECTOR),
-                # "mileage": safe_find_text("//li[span[contains(text(), 'Пробег')]]/span/following-sibling::span"),
-                # "gearbox": safe_find_text("//li[span[contains(text(), 'Коробка передач')]]/span/following-sibling::span"),
-                # "owners": safe_find_text("//li[span[contains(text(), 'Владельцы')]]/span/following-sibling::span"),
-                # "condition": safe_find_text("//li[span[contains(text(), 'Состояние')]]/span/following-sibling::span"),
-                # "seller": safe_find_text("//li[span[contains(text(), 'Продавец')]]/span/following-sibling::span"),
-                # "city": safe_find_text("//span[@data-marker='delivery-item-title']/span"),
-                # "year": safe_find_text("//li[span[contains(text(), 'Год выпуска')]]/span/following-sibling::span"),
-                # "body_type": safe_find_text("//li[span[contains(text(), 'Тип кузова')]]/span/following-sibling::span"),
-                # "color": safe_find_text("//li[span[contains(text(), 'Цвет')]]/span/following-sibling::span"),
-                # "drive": safe_find_text("//li[span[contains(text(), 'Привод')]]/span/following-sibling::span"),
-                # "steering": safe_find_text("//li[span[contains(text(), 'Руль')]]/span/following-sibling::span"),
-                # "ad_type": safe_find_text("//li[span[contains(text(), 'Тип объявления')]]/span/following-sibling::span"),
+                "characteristics": self._parse_characteristics(),
             }
             ad_id = self._extract_avito_id(ad['link'])
             self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
@@ -199,9 +203,7 @@ class AvitoParser:
                     self._human_delay(5, 10) # дополнительная задержка после отсутствия новых объявлений
                 
                 self._human_delay(5, 10)
-                # self.driver.delete_all_cookies()  # Очистить cookies после каждого запроса
                 
-                        
         except Exception as ex:
             # При ошибке выход на 5 минут, после - повторный запуск
             self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
