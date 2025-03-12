@@ -93,7 +93,8 @@ class AvitoParser:
                 if not self.redis_client.exists(f"ad:{ad_id}"):
                     title = ad.find_element(By.CSS_SELECTOR, "h3").text
                     price = ad.find_element(By.CSS_SELECTOR, "p[data-marker='item-price'] span").text
-                    new_ads.append({'title': title, 'price': price, 'link': link})
+                    city = ad.find_element(By.CSS_SELECTOR, "div[class^='geo-root-NrkbV'] p span").text
+                    new_ads.append({'title': title, 'price': price, 'link': link, 'city': city})
             except Exception as ex:
                 self.logger.error(f"Error processing ad: {ex}")
                 continue
@@ -134,23 +135,59 @@ class AvitoParser:
 
         return characteristics
 
+    def _extract_brand_model(self, title: str):
+        # Разбиваем строку по запятой (удаляем пробег и год)
+        main_part = title.split(",")[0]
+
+        # Проверяем, есть ли скобки в начале (например, "ВАЗ (LADA)")
+        match = re.match(r"^([\w-]+(?:\s*\([\w\s-]+\))?)\s+(.+)", main_part)
+        
+        if match:
+            brand = match.group(1)  # Бренд (учитывает скобки)
+            model = match.group(2)  # Все остальное — модель
+            return brand, model
+        return None, None
+
     
     def _parse_details(self, ad):
         self.driver.get(ad['link'])
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
         self._human_mouse(1, 2)
         self._human_delay(1, 3)
+
         
         try:            
+            brand, model = self._extract_brand_model(ad['title'])
+            characteristics = self._parse_characteristics()
             # Парсинг деталей
             image = self.driver.find_element(By.CSS_SELECTOR, "img").get_attribute("src")
             details = {
-                "title": ad['title'],
-                "price": ad['price'],
-                "link": ad['link'],
-                "image": image,
                 "platform" : "avito",
-                "characteristics": self._parse_characteristics(),
+                "link": ad['link'],
+                "name": ad['title'],
+                "year": characteristics.get('Год выпуска'),
+                "image": image,
+                "price": ad['price'],
+                "city": ad['city'],
+                
+                # Бренд и модель 
+                "brand": brand,
+                "model": model,
+                
+                # Характеристики
+                "mileage": characteristics.get('Пробег'),
+                "engine": characteristics.get('Тип двигателя'),
+                "color": characteristics.get('Цвет'),
+                "gearbox": characteristics.get('Коробка передач'),
+                "drivetrain": characteristics.get('Привод'),
+                "steering": characteristics.get('Руль'),
+                "owners": characteristics.get('Владельцев по ПТС'),
+                "body_type": characteristics.get('Тип кузова'),
+                "condition": characteristics.get('Состояние'),
+                
+                # Тип объявления и продавец
+                "ad_type": None,
+                "seller": self.driver.find_element(By.CSS_SELECTOR, "div[data-marker^='seller-info/label'").text,
             }
             ad_id = self._extract_avito_id(ad['link'])
             self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
