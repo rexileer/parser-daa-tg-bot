@@ -175,15 +175,19 @@ class DromParser:
             title_parts = title.rsplit(", ", 1)  # Разделяем строку по последней запятой
             characteristics = self._parse_characteristics()
             details = {
+                "platform" : "drom",
+                "link": ad['link'],
                 "name": title_parts[0] if len(title_parts) > 1 else title,  # Если есть запятая — берем до нее, иначе весь title
                 "year": title_parts[1] if len(title_parts) > 1 else None,   # Если нет запятой — год не указан
-                "price": ad['price'],
-                "link": ad['link'],
                 "image": image,
-                "platform" : "drom",
+                "price": ad['price'],
                 "city": extracted_info[0] if extracted_info else None,
+                
+                # Бренд и модель
                 "brand": extracted_info[1] if extracted_info else None,
                 "model": extracted_info[2] if extracted_info else None,
+                
+                # Характеристики
                 "engine": characteristics.get('Двигатель'),
                 "mileage": characteristics.get('Пробег'),
                 "color": characteristics.get('Цвет'),
@@ -192,8 +196,11 @@ class DromParser:
                 "steering": characteristics.get('Руль'),
                 "owners": characteristics.get('Владельцы'),
                 "body_type": characteristics.get('Тип кузова'),
+                
+                # Дополнительные поля
                 "condition": None,
                 "ad_type": None,
+                "seller": None,
             }
             ad_id = self._extract_drom_id(ad['link'])
             self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
