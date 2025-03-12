@@ -1,3 +1,4 @@
+import json
 import time
 import random
 import re
@@ -90,7 +91,7 @@ class AvitoParser:
                 link = ad.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
                 ad_id = self._extract_avito_id(link)
                 self.logger.info(f"Processing ad {ad_id}")
-                if not self.redis_client.exists(f"ad:{ad_id}"):
+                if not self.redis_client.exists(f"{ad_id}"):
                     title = ad.find_element(By.CSS_SELECTOR, "h3").text
                     price = ad.find_element(By.CSS_SELECTOR, "p[data-marker='item-price'] span").text
                     city = ad.find_element(By.CSS_SELECTOR, "div[class^='geo-root-NrkbV'] p span").text
@@ -190,7 +191,7 @@ class AvitoParser:
                 "seller": self.driver.find_element(By.CSS_SELECTOR, "div[data-marker^='seller-info/label'").text,
             }
             ad_id = self._extract_avito_id(ad['link'])
-            self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
+            self.redis_client.setex(f"{ad_id}", 1800, json.dumps(details, ensure_ascii=False))  # Сохранение объявления в Redis
             self.logger.info(f"Saved ad {ad_id} to Redis")
             return details
         except Exception as ex:

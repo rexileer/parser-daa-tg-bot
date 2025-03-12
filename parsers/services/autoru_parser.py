@@ -1,3 +1,4 @@
+import json
 import time
 import random
 import re
@@ -91,7 +92,7 @@ class AutoruParser:
                 link = ad.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
                 ad_id = self._extract_autoru_id(link)
                 self.logger.info(f"Processing ad {ad_id}")
-                if not self.redis_client.exists(f"ad:{ad_id}"):
+                if not self.redis_client.exists(f"{ad_id}"):
                     new_ads.append({'link': link})
             except Exception as ex:
                 self.logger.error(f"Error processing ad: {ex}")
@@ -207,7 +208,7 @@ class AutoruParser:
                 "seller": "group" if extracted_info and extracted_info[0] == "new/group" else "private",
             }
             ad_id = self._extract_autoru_id(ad['link'])
-            self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
+            self.redis_client.setex(f"{ad_id}", 1800, json.dumps(details, ensure_ascii=False))  # Сохранение объявления в Redis
             self.logger.info(f"Saved ad {ad_id} to Redis")
             return details
         except Exception as ex:
