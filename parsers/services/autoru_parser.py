@@ -191,10 +191,6 @@ class AutoruParser:
                 "brand": extracted_info[1] if extracted_info else None,
                 "model": extracted_info[2] if extracted_info else None,
                 
-                # Тип объявления и продавец
-                "ad_type": "new" if extracted_info and extracted_info[0] == "new/group" else "used",
-                "seller": "group" if extracted_info and extracted_info[0] == "new/group" else "private",
-                
                 # Характеристики
                 "mileage": characteristics.get('Пробег'),
                 "engine": characteristics.get('Двигатель'),
@@ -205,6 +201,10 @@ class AutoruParser:
                 "owners": characteristics.get('Владельцы'),
                 "body_type": characteristics.get('Кузов'),
                 "condition": characteristics.get('Состояние'),
+                
+                # Тип объявления и продавец
+                "ad_type": "new" if extracted_info and extracted_info[0] == "new/group" else "used",
+                "seller": "group" if extracted_info and extracted_info[0] == "new/group" else "private",
             }
             ad_id = self._extract_autoru_id(ad['link'])
             self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
