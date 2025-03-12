@@ -49,7 +49,7 @@ class AutoruParser:
         logging.basicConfig(level=logging.INFO)
         return logging.getLogger(__name__)
     
-    def _extract_drom_id(self, url: str) -> str | None:
+    def _extract_autoru_id(self, url: str) -> str | None:
         match = re.search(r'/(\d+)-\w+/', url)
         if not match:
             match = re.search(r'(\d+)$', url)  # Ищем число в конце строки
@@ -89,7 +89,7 @@ class AutoruParser:
         for ad in ads[:10]:
             try:
                 link = ad.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-                ad_id = self._extract_drom_id(link)
+                ad_id = self._extract_autoru_id(link)
                 self.logger.info(f"Processing ad {ad_id}")
                 if not self.redis_client.exists(f"ad:{ad_id}"):
                     new_ads.append({'link': link})
@@ -123,24 +123,90 @@ class AutoruParser:
             print(f"❌ Ошибка при парсинге характеристик: {e}")
         return characteristics
     
+    def _parse_characteristics_new(self):
+        characteristics = {}
+        exclude_values = {"Неизвестно", "Нет данных"}
+        try:
+            li_elements = self.driver.find_elements(By.CSS_SELECTOR, "li[class^='CardInfoGroupedRow']")
+            for li in li_elements:
+                try:
+                    key_element = li.find_element(By.CSS_SELECTOR, "div[class^='CardInfoGroupedRow__cellTitle']")
+                    key = key_element.text.strip() if key_element else None
+                    
+                    # Ищем возможные элементы значения
+                    value_elements = li.find_elements(By.CSS_SELECTOR, "div[class^='CardInfoGroupedRow__cellValue'], span, a")
+                    
+                    # Собираем текст из всех найденных элементов
+                    values = [el.text.strip() for el in value_elements if el.text.strip()]
+                    value = " / ".join(values) if values else None  # Объединяем, если несколько
+                    if key and value and value not in exclude_values:
+                        characteristics[key] = value
+                    else:
+                        print(f"⚠️ Проблема с разбором: {li.get_attribute('outerHTML')}")
+                except Exception as e:
+                    print(f"❌ Ошибка при обработке {li.get_attribute('outerHTML')}: {e}")
+        except Exception as e:
+            print(f"❌ Ошибка при парсинге характеристик: {e}")
+        return characteristics
+    
+    
+    def _extract_info(self, url: str) -> str | None:
+        pattern = r'https://auto.ru/cars/(new/group|used/sale)/([^/]+)/([^/]+)/'
+        match = re.match(pattern, url)
+        if match:
+            type, brand, model = match.groups()
+            return [type, brand, model]
+        return None
+    
     
     def _parse_details(self, ad):
         self.driver.get(ad['link'])
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
         self._human_mouse(1, 2)
         self._human_delay(1, 3)
+
         
         try:
+            extracted_info = self._extract_info(ad['link'])
+            if not extracted_info:
+                self.logger.error(f"Failed to extract info from URL: {ad['link']}")
+                return
+            elif extracted_info[0] == "used/sale":
+                characteristics = self._parse_characteristics()
+            else:
+                characteristics = self._parse_characteristics_new()
+            title = self.driver.find_element(By.CSS_SELECTOR, "h1").text  # Получаем заголовок, если его нет — пустая строка
+            title_parts = title.rsplit(", ", 1)  # Разделяем строку по последней запятой
             # Парсинг деталей
             details = {
-                "title": self.driver.find_element(By.CSS_SELECTOR, "h1").text,
-                "price": self.driver.find_element(By.CSS_SELECTOR, "span[class='OfferPriceCaption__price']").text,
-                "link": ad['link'],
-                "image": self.driver.find_element(By.CSS_SELECTOR, "img[class='ImageGalleryDesktop__image']").get_attribute("src"),
                 "platform" : "autoru",
-                "characteristics": self._parse_characteristics(),
+                "link": ad['link'],
+                "name": title_parts[0] if len(title_parts) > 1 else title,
+                "year": title_parts[1] if len(title_parts) > 1 else None,
+                "image": self.driver.find_element(By.CSS_SELECTOR, "img[class='ImageGalleryDesktop__image']").get_attribute("src"),
+                "price": self.driver.find_element(By.CSS_SELECTOR, "span[class='OfferPriceCaption__price']").text,
+                "city": self.driver.find_element(By.CSS_SELECTOR, "div[class^='CardSellerNamePlace2__address'] span[class^='MetroListPlace__regionName']").text,
+                
+                # Бренд и модель 
+                "brand": extracted_info[1] if extracted_info else None,
+                "model": extracted_info[2] if extracted_info else None,
+                
+                # Тип объявления и продавец
+                "ad_type": "new" if extracted_info and extracted_info[0] == "new/group" else "used",
+                "seller": "group" if extracted_info and extracted_info[0] == "new/group" else "private",
+                
+                # Характеристики
+                "mileage": characteristics.get('Пробег'),
+                "engine": characteristics.get('Двигатель'),
+                "color": characteristics.get('Цвет'),
+                "gearbox": characteristics.get('Коробка'),
+                "drivetrain": characteristics.get('Привод'),
+                "steering": characteristics.get('Руль'),
+                "owners": characteristics.get('Владельцы'),
+                "body_type": characteristics.get('Кузов'),
+                "condition": characteristics.get('Состояние'),
             }
-            ad_id = self._extract_drom_id(ad['link'])
+            ad_id = self._extract_autoru_id(ad['link'])
             self.redis_client.setex(f"ad:{ad_id}", 1800, str(details))  # Сохранение объявления в Redis
             self.logger.info(f"Saved ad {ad_id} to Redis")
             return details
