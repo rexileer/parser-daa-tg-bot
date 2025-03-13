@@ -76,6 +76,14 @@ async def manage_parsers():
         current_time = time.time()
         if current_time - last_restart_time >= 600:  # 600 секунд = 10 минут
             print("Прошло 10 минут, перезапускаю скрипт...")
+            
+            # Завершаем все процессы перед перезапуском
+            for name, process in RUNNING_PROCESSES.items():
+                print(f"Завершаем процесс {name}...")
+                process.terminate()
+                process.wait()  # Дожидаемся завершения процесса перед перезапуском
+            RUNNING_PROCESSES.clear()  # Очищаем список процессов
+            
             os.execv(sys.executable, ['python'] + sys.argv)  # Перезапуск скрипта
 
         await asyncio.sleep(5)  # Проверка статуса каждые 5 секунд
