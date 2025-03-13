@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 from commands import start_command
 from handlers import monitoring_handler, filters_handler
-from callbacks import filters_callback
+from callbacks import filters_callback, filters_check_callback
 
 import logging
 
@@ -42,7 +42,8 @@ async def main():
         start_command.router,
         monitoring_handler.router,
         filters_handler.router,
-        filters_callback.router
+        filters_callback.router,
+        filters_check_callback.router,
     )
     
     await bot.delete_webhook(drop_pending_updates=True)

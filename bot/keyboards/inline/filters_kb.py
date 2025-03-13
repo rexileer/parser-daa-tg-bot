@@ -1,5 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+
 # Функция для создания клавиатуры с фильтрами
 def filters_keyboard():
     # Строки с фильтрами
@@ -20,7 +21,7 @@ def filters_keyboard():
         buttons = [
             InlineKeyboardButton(
                 text=filter_name, 
-                callback_data=f"filter_{filter_name.lower().replace(' ', '_')}"
+                callback_data=f"filter_{filter_name}"
             ) 
             for filter_name in filter_row
         ]
@@ -28,7 +29,7 @@ def filters_keyboard():
     
     # Добавляем кнопку "Применить фильтры"
     inline_keyboard.append([
-        InlineKeyboardButton(text="✅ Применить фильтры", callback_data="apply_filters")
+        InlineKeyboardButton(text="✅ Продолжить", callback_data="check_filters")
     ])
     
     # Создание и возврат клавиатуры

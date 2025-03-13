@@ -3,7 +3,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import State, StatesGroup
 
-from services.filters_service import update_user_filter, FILTER_MAPPING
+from services.filters_service import update_user_filter, get_user_filters
+from keyboards.inline.check_filters_kb import check_filters_keyboard
+from .filter_mapping import FILTER_MAPPING
 
 
 class FilterStates(StatesGroup):
@@ -24,7 +26,6 @@ async def filter_handler(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FilterStates.entering_value)  # Устанавливаем состояние
 
 
-
 @router.message(FilterStates.entering_value)
 async def save_filter_value(message: Message, state: FSMContext):
     user_id = message.from_user.id
@@ -40,3 +41,11 @@ async def save_filter_value(message: Message, state: FSMContext):
     await message.answer(f"✅ Фильтр {filter_name} обновлён: {filter_value}")
     
     await state.clear()  # Очищаем состояние
+
+@router.callback_query(F.data == "check_filters")
+async def check_filters(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    filters_text = await get_user_filters(user_id)
+    keyboard = check_filters_keyboard()
+    await callback.message.answer(filters_text, reply_markup=keyboard, parse_mode="Markdown")
+    

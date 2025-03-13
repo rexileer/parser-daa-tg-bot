@@ -193,7 +193,7 @@ class DromParser:
                 "mileage": characteristics.get('Пробег'),
                 "color": characteristics.get('Цвет'),
                 "gearbox": characteristics.get('Коробка передач'),
-                "drivetrain": characteristics.get('Привод'),
+                "drive": characteristics.get('Привод'),
                 "steering": characteristics.get('Руль'),
                 "owners": characteristics.get('Владельцы'),
                 "body_type": characteristics.get('Тип кузова'),

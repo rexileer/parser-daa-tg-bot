@@ -197,7 +197,7 @@ class AutoruParser:
                 "engine": characteristics.get('Двигатель'),
                 "color": characteristics.get('Цвет'),
                 "gearbox": characteristics.get('Коробка'),
-                "drivetrain": characteristics.get('Привод'),
+                "drive": characteristics.get('Привод'),
                 "steering": characteristics.get('Руль'),
                 "owners": characteristics.get('Владельцы'),
                 "body_type": characteristics.get('Кузов'),

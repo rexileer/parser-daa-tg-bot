@@ -180,7 +180,7 @@ class AvitoParser:
                 "engine": characteristics.get('Тип двигателя'),
                 "color": characteristics.get('Цвет'),
                 "gearbox": characteristics.get('Коробка передач'),
-                "drivetrain": characteristics.get('Привод'),
+                "drive": characteristics.get('Привод'),
                 "steering": characteristics.get('Руль'),
                 "owners": characteristics.get('Владельцев по ПТС'),
                 "body_type": characteristics.get('Тип кузова'),
