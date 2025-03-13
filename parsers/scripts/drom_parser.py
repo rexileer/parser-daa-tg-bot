@@ -160,6 +160,45 @@ class DromParser:
         self.logger.debug("Завершение парсинга характеристик.")
         return characteristics
 
+    def _normalize_car_data(self, raw_data: dict) -> dict:
+        """
+        Приводит данные автомобиля к стандартному формату.
+        """
+        def __normalize_int(value, default=0):
+            try:
+                return int(re.sub(r'\D', '', str(value)))
+            except ValueError:
+                return default
+        
+        def __normalize_str(value):
+            return str(value).strip().lower() if value else "unknown"
+        
+        
+        seller_mapping = {"dealer": "автодилер", "private": "частное лицо"}
+        ad_type_mapping = {"new": "новый", "used": "второй рынок"}
+        
+        return {
+            "platform": __normalize_str(raw_data.get("platform")),
+            "link": raw_data.get("link", ""),
+            "name": __normalize_str(raw_data.get("name")),
+            "year": __normalize_int(raw_data.get("year"), default=1900),
+            "image": raw_data.get("image", ""),
+            "price": __normalize_int(raw_data.get("price"), default=0),
+            "city": __normalize_str(raw_data.get("city")),
+            "brand": __normalize_str(raw_data.get("brand")),
+            "model": __normalize_str(raw_data.get("model")),
+            "mileage": __normalize_int(raw_data.get("mileage"), default=0),
+            "engine": __normalize_str(raw_data.get("engine")),
+            "color": __normalize_str(raw_data.get("color")),
+            "gearbox": __normalize_str(raw_data.get("gearbox")),
+            "drive":__normalize_str(raw_data.get("drive")),
+            "steering": __normalize_str(raw_data.get("steering")),
+            "owners": min(__normalize_int(raw_data.get("owners"), default=0), 99),
+            "body_type": __normalize_str(raw_data.get("body_type")),
+            "condition": __normalize_str(raw_data.get("condition")),
+            "ad_type": ad_type_mapping.get(__normalize_str(raw_data.get("ad_type")), "unknown"),
+            "seller": seller_mapping.get(__normalize_str(raw_data.get("seller")), "unknown")
+        }
 
     def _parse_details(self, ad):
         self.driver.get(ad['link'])
@@ -204,9 +243,10 @@ class DromParser:
                 "seller": None,
             }
             ad_id = self._extract_drom_id(ad['link'])
-            self.redis_client.setex(f"{ad_id}", 1800, json.dumps(details, ensure_ascii=False))  # Сохранение объявления в Redis
+            normalized_details = self._normalize_car_data(details)
+            self.redis_client.setex(f"{ad_id}", 1800, json.dumps(normalized_details, ensure_ascii=False))  # Сохранение объявления в Redis
             self.logger.info(f"Saved ad {ad_id} to Redis")
-            return details
+            return normalized_details
         except Exception as ex:
             self.logger.error(f"Error parsing ad details: {ex}")
         
