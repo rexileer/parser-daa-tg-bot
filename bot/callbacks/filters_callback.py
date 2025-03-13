@@ -3,7 +3,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import State, StatesGroup
 
-from services.filters_service import update_user_filter, FILTER_MAPPING
+from services.filters_service import update_user_filter
+from .filter_mapping import FILTER_MAPPING
 
 
 class FilterStates(StatesGroup):
@@ -22,7 +23,6 @@ async def filter_handler(callback: CallbackQuery, state: FSMContext):
     await state.update_data(selected_filter=filter_name)  # Сохраняем выбранный фильтр в state
     await callback.message.answer(f"Введите значение для {filter_name}:")
     await state.set_state(FilterStates.entering_value)  # Устанавливаем состояние
-
 
 
 @router.message(FilterStates.entering_value)
