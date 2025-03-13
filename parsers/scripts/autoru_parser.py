@@ -228,6 +228,7 @@ class AutoruParser:
     def parse(self):
         try:
             while True:
+                self.driver.delete_all_cookies()
                 url = "https://auto.ru/rossiya/cars/all/?sort=cr_date-desc"
                 self.logger.info("Opening auto.ru")
                 self.driver.get(url)

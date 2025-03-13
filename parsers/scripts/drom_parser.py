@@ -216,6 +216,7 @@ class DromParser:
     def parse(self):
         try:
             while True:
+                self.driver.delete_all_cookies()
                 url = "https://auto.drom.ru/all/"
                 self.logger.info("Opening drom.ru")
                 self.driver.get(url)

@@ -203,6 +203,7 @@ class AvitoParser:
     def parse(self):
         try:
             while True:
+                self.driver.delete_all_cookies()
                 url = "https://www.avito.ru/all/avtomobili?s=104"
                 self.logger.info("Opening avito.ru")
                 self.driver.get(url)
