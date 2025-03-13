@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from commands import start_command
 from handlers import monitoring_handler, filters_handler
 from callbacks import filters_callback, filters_check_callback
+from ads_sender import main as start_ads_sender
 
 import logging
 
@@ -46,8 +47,11 @@ async def main():
         filters_check_callback.router,
     )
     
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
-    
+    await asyncio.gather(
+        bot.delete_webhook(drop_pending_updates=True),
+        dp.start_polling(bot),
+        start_ads_sender(),
+    )
+
 if __name__ == "__main__":
     asyncio.run(main())
