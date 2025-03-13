@@ -29,7 +29,7 @@ def filters_keyboard():
     
     # Добавляем кнопку "Применить фильтры"
     inline_keyboard.append([
-        InlineKeyboardButton(text="✅ Применить фильтры", callback_data="apply_filters")
+        InlineKeyboardButton(text="✅ Продолжить", callback_data="check_filters")
     ])
     
     # Создание и возврат клавиатуры
