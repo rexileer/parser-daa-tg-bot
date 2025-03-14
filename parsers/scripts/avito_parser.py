@@ -10,9 +10,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from fake_useragent import UserAgent, FakeUserAgentError
+from config import REDIS_HOST, REDIS_PORT
 
 class AvitoParser:
-    def __init__(self, redis_host='localhost', redis_port=6379, redis_db=0):
+    def __init__(self, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0):
         self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
         self.driver = self._init_driver()
         self.logger = self._init_logger()
@@ -41,7 +42,10 @@ class AvitoParser:
         options.add_argument("--disable-renderer-backgrounding")
         options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
         options.add_experimental_option('useAutomationExtension', False)
-        driver = webdriver.Chrome(options=options)
+        driver = webdriver.Remote(
+            command_executor="http://chrome_driver:4444/wd/hub",
+            options=options,
+            )
         driver.implicitly_wait(1)
         return driver
     

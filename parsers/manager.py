@@ -35,6 +35,7 @@ async def run_parser(name, script_path):
         RUNNING_PROCESSES[name] = process
         print(f"Процесс {name} запущен, PID: {process.pid}")
         
+        await asyncio.sleep(10)
 
         # Даем процессу время работать, но не блокируем основной цикл
         while process.poll() is None:  # Пока процесс не завершился
@@ -53,40 +54,46 @@ async def run_parser(name, script_path):
 
 async def manage_parsers():
     """Следит за статусом парсеров и перезапускает их при изменениях в БД"""
-    last_restart_time = time.time()  # Время последнего перезапуска
+    last_restart_time = time.time()
 
     while True:
         close_old_connections()
         active_parsers = await sync_to_async(list)(Parser.objects.filter(is_active=True))
         active_parsers_names = {p.name for p in active_parsers}
         
-        # Запускаем новые парсеры
+        # Запуск всех новых парсеров
+        tasks = []
         for name in active_parsers_names:
             if name not in RUNNING_PROCESSES and name in PARSER_SCRIPTS:
                 print(f"Запуск парсера {name}...")
-                asyncio.create_task(run_parser(name, PARSER_SCRIPTS[name]))
+                task = asyncio.create_task(run_parser(name, PARSER_SCRIPTS[name]))
+                tasks.append(task)
 
-        # Останавливаем парсеры, которые выключили в админке
+        await asyncio.gather(*tasks)  # Запуск всех задач сразу
+
+        # Остановка парсеров, которые выключили в админке
         for name in list(RUNNING_PROCESSES.keys()):
             if name not in active_parsers_names:
                 print(f"Остановка парсера {name}...")
                 RUNNING_PROCESSES[name].terminate()
-                
-                # Проверяем, прошло ли 10 минут с последнего перезапуска
+                RUNNING_PROCESSES[name].wait()
+
+        # Перезапуск после 10 минут
         current_time = time.time()
         if current_time - last_restart_time >= 600:  # 600 секунд = 10 минут
-            print("Прошло 10 минут, перезапускаю скрипт...")
-            
-            # Завершаем все процессы перед перезапуском
+            print("Прошло 10 минут, перезапуск парсеров...")
             for name, process in RUNNING_PROCESSES.items():
-                print(f"Завершаем процесс {name}...")
+                print(f"Перезапускаем парсер {name}...")
                 process.terminate()
-                process.wait()  # Дожидаемся завершения процесса перед перезапуском
-            RUNNING_PROCESSES.clear()  # Очищаем список процессов
-            
-            os.execv(sys.executable, ['python'] + sys.argv)  # Перезапуск скрипта
+                process.wait()
 
-        await asyncio.sleep(5)  # Проверка статуса каждые 5 секунд
+                # Перезапуск парсера
+                asyncio.create_task(run_parser(name, PARSER_SCRIPTS[name]))
+
+            RUNNING_PROCESSES.clear()  # Очищаем список процессов
+
+        await asyncio.sleep(5)
+
 
 if __name__ == "__main__":
     asyncio.run(manage_parsers())
