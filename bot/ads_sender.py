@@ -130,7 +130,7 @@ async def send_ad_to_user(user_id, ad):
         
         f"🏢 *Продавец:* {ad['seller']}\n"
         f"📜 *Тип объявления:* {ad['ad_type']}\n"
-        f"🔗 *Ссылка:* {ad['link']}"
+        f"🔗 *Ссылка:* {ad['link'].replace('_', r'\_')}"
     )
 
     try:

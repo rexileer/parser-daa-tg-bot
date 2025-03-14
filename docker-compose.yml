@@ -89,7 +89,7 @@ services:
     environment:
       - SE_NODE_MAX_INSTANCES=1
       - SE_NODE_MAX_SESSION=1
-    shm_size: 4gb
+    shm_size: 6gb
     restart: always
 
   parsers:
@@ -102,8 +102,13 @@ services:
       - db
     volumes:
       - .:/app
-    command: python parsers/manager.py
+    command: sh -c "sleep 10 && python parsers/manager.py"  # Добавлена задержка перед запуском скрипта
     restart: always
+    healthcheck:
+      test: ["CMD", "python", "parsers/manager.py", "--check"]
+      interval: 30s
+      retries: 3
+      start_period: 30s
 
 volumes:
   postgres_data:

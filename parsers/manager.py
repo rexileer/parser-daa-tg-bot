@@ -14,6 +14,11 @@ django.setup()
 from django.db import close_old_connections
 from parsers.models import Parser
 
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 PARSER_SCRIPTS = {
     "avito": "parsers/scripts/avito_parser.py",
     "drom": "parsers/scripts/drom_parser.py",
@@ -30,10 +35,10 @@ def get_parser(name):
 async def run_parser(name, script_path):
     """Запускает парсер в отдельном процессе"""
     while True:
-        print(f"Запускаю парсер {name} (скрипт: {script_path})...")
+        logger.info(f"Запускаю парсер {name} (скрипт: {script_path})...")
         process = subprocess.Popen(["python", script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         RUNNING_PROCESSES[name] = process
-        print(f"Процесс {name} запущен, PID: {process.pid}")
+        logger.info(f"Процесс {name} запущен, PID: {process.pid}")
         
         await asyncio.sleep(10)
 
@@ -45,10 +50,10 @@ async def run_parser(name, script_path):
         parser = await get_parser(name)
         if not parser or not parser.is_active:
             del RUNNING_PROCESSES[name]
-            print(f"Парсер {name} выключен в админке, остановка...")
+            logger.info(f"Парсер {name} выключен в админке, остановка...")
             break
 
-        print(f"Парсер {name} завершился, перезапускаем через 10 секунд...")
+        logger.info(f"Парсер {name} завершился, перезапускаем через 10 секунд...")
         await asyncio.sleep(10)  # Даем паузу перед перезапуском
 
 
@@ -65,7 +70,7 @@ async def manage_parsers():
         tasks = []
         for name in active_parsers_names:
             if name not in RUNNING_PROCESSES and name in PARSER_SCRIPTS:
-                print(f"Запуск парсера {name}...")
+                logger.info(f"Запуск парсера {name}...")
                 task = asyncio.create_task(run_parser(name, PARSER_SCRIPTS[name]))
                 tasks.append(task)
 
@@ -74,16 +79,16 @@ async def manage_parsers():
         # Остановка парсеров, которые выключили в админке
         for name in list(RUNNING_PROCESSES.keys()):
             if name not in active_parsers_names:
-                print(f"Остановка парсера {name}...")
+                logger.info(f"Остановка парсера {name}...")
                 RUNNING_PROCESSES[name].terminate()
                 RUNNING_PROCESSES[name].wait()
 
         # Перезапуск после 10 минут
         current_time = time.time()
         if current_time - last_restart_time >= 600:  # 600 секунд = 10 минут
-            print("Прошло 10 минут, перезапуск парсеров...")
+            logger.info("Прошло 10 минут, перезапуск парсеров...")
             for name, process in RUNNING_PROCESSES.items():
-                print(f"Перезапускаем парсер {name}...")
+                logger.info(f"Перезапускаем парсер {name}...")
                 process.terminate()
                 process.wait()
 
