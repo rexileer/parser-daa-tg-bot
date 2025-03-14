@@ -128,17 +128,14 @@ async def send_ad_to_user(user_id, ad):
         
         f"🏢 *Продавец:* {ad['seller']}\n"
         f"📜 *Тип объявления:* {ad['ad_type']}\n"
-        f"🔗 *Ссылка:* {ad['link']}"
+        # f"🔗 *Ссылка:* {ad['link'].replace('_', r'\_')}"
     )
 
     try:
-        if ad["image"].startswith("http"):  # Если изображение - это URL
-            await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text, parse_mode="Markdown")
-        else:  # Если изображение - это файл (например, путь или бинарные данные)
-            with open(ad["image"], "rb") as photo_file:
-                await bot.send_photo(chat_id=user_id, photo=photo_file, caption=text, parse_mode="Markdown")
+        await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text, parse_mode="Markdown")
     except Exception as e:
-        print(f"❌ Ошибка отправки пользователю {user_id}: {e}")
+        print(f"❌ Ошибка photo пользователю {user_id}: {e}, объявление: {ad}")
+        await bot.send_message(chat_id=user_id, text=text, parse_mode="Markdown")
 
 async def main():
     redis_client = await redis.Redis(host="localhost", port=6379, decode_responses=True)
