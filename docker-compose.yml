@@ -87,8 +87,8 @@ services:
     ports:
       - "4444:4444"
     environment:
-      - SE_NODE_MAX_INSTANCES=1
-      - SE_NODE_MAX_SESSION=1
+      - SE_NODE_MAX_INSTANCES=3
+      - SE_NODE_MAX_SESSIONS=6
     shm_size: 6gb
     restart: always
 

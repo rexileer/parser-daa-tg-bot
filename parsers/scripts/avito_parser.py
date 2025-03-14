@@ -204,7 +204,7 @@ class AvitoParser:
             brand, model = self._extract_brand_model(ad['title'])
             characteristics = self._parse_characteristics()
             # Парсинг деталей
-            image = self.driver.find_element(By.CSS_SELECTOR, "img").get_attribute("src")
+            image = self.driver.find_element(By.CSS_SELECTOR, "div[data-marker='image-frame/image-wrapper'] img").get_attribute("src")
             details = {
                 "platform" : "avito",
                 "link": ad['link'],
