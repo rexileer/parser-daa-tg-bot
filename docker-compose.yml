@@ -81,31 +81,89 @@ services:
       - REDIS_PORT=6379
     command: python bot/tg_bot.py
 
-  chrome_driver:
+  avito_chrome_driver:
     image: selenium/standalone-chrome:latest
-    container_name: chrome_driver
+    container_name: avito_chrome_driver
     ports:
-      - "4444:4444"
+      - "4445:4444"
     environment:
-      - SE_NODE_MAX_INSTANCES=3
-      - SE_NODE_MAX_SESSIONS=6
-    shm_size: 6gb
+      - SE_NODE_MAX_INSTANCES=1
+      - SE_NODE_MAX_SESSIONS=2
+    shm_size: 2gb
+    restart: always
+  
+  autoru_chrome_driver:
+      image: selenium/standalone-chrome:latest
+      container_name: autoru_chrome_driver
+      ports:
+        - "4446:4444"
+      environment:
+        - SE_NODE_MAX_INSTANCES=1
+        - SE_NODE_MAX_SESSIONS=2
+      shm_size: 2gb
+      restart: always
+  
+  drom_chrome_driver:
+    image: selenium/standalone-chrome:latest
+    container_name: drom_chrome_driver
+    ports:
+      - "4447:4444"
+    environment:
+      - SE_NODE_MAX_INSTANCES=1
+      - SE_NODE_MAX_SESSIONS=2
+    shm_size: 2gb
     restart: always
 
-  parsers:
+  avito-parser:
     build:
       context: .
-    container_name: parsers
+    container_name: avito-parser
     depends_on:
-      - chrome_driver
+      - avito_chrome_driver
       - redis
       - db
     volumes:
       - .:/app
-    command: sh -c "sleep 10 && python parsers/manager.py"  # Добавлена задержка перед запуском скрипта
+    command: sh -c "sleep 10 && python parsers/avito_manager.py"  # Добавлена задержка перед запуском скрипта
     restart: always
     healthcheck:
-      test: ["CMD", "python", "parsers/manager.py", "--check"]
+      test: ["CMD", "python", "parsers/avito_manager.py", "--check"]
+      interval: 30s
+      retries: 3
+      start_period: 30s
+
+  autoru-parser:
+    build:
+      context: .
+    container_name: autoru-parser
+    depends_on:
+      - autoru_chrome_driver
+      - redis
+      - db
+    volumes:
+      - .:/app
+    command: sh -c "sleep 10 && python parsers/autoru_manager.py"  # Добавлена задержка перед запуском скрипта
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "parsers/autoru_manager.py", "--check"]
+      interval: 30s
+      retries: 3
+      start_period: 30s
+
+  drom-parser:
+    build:
+      context: .
+    container_name: drom-parser
+    depends_on:
+      - drom_chrome_driver
+      - redis
+      - db
+    volumes:
+      - .:/app
+    command: sh -c "sleep 10 && python parsers/drom_manager.py"  # Добавлена задержка перед запуском скрипта
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "parsers/drom_manager.py", "--check"]
       interval: 30s
       retries: 3
       start_period: 30s

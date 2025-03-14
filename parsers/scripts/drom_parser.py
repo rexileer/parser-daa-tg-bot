@@ -44,7 +44,7 @@ class DromParser:
         options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
         options.add_experimental_option('useAutomationExtension', False)
         driver = webdriver.Remote(
-            command_executor="http://chrome_driver:4444/wd/hub",
+            command_executor="http://drom_chrome_driver:4444/wd/hub",
             options=options,
             )
         driver.implicitly_wait(1)

@@ -20,9 +20,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 PARSER_SCRIPTS = {
-    "avito": "parsers/scripts/avito_parser.py",
+    # "avito": "parsers/scripts/avito_parser.py",
     "drom": "parsers/scripts/drom_parser.py",
-    "autoru": "parsers/scripts/autoru_parser.py",
+    # "autoru": "parsers/scripts/autoru_parser.py",
 }
 
 RUNNING_PROCESSES = {}  # Хранит {имя парсера: Process}
