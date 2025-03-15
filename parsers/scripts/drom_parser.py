@@ -257,8 +257,8 @@ class DromParser:
     
     
     def parse(self):
-        try:
-            while True:
+        while True:
+            try:
                 self.driver.delete_all_cookies()
                 url = "https://auto.drom.ru/all/"
                 self.logger.info("Opening drom.ru")
@@ -302,15 +302,14 @@ class DromParser:
                 # self.driver.delete_all_cookies()  # Очистить cookies после каждого запроса
                 
                         
-        except Exception as ex:
-            # При ошибке выход на 5 минут, после - повторный запуск
-            self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
-            self.driver.quit()
-            self._human_delay(300, 350)
-            self.parse()
-        finally:
-            self.logger.info("Driver closed")
-
+            except Exception as ex:
+                # При ошибке выход на 5 минут, после - повторный запуск
+                self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
+                self.driver.quit()
+                self._human_delay(300, 350)
+                self.driver = self._init_driver()
+            finally:
+                self.logger.info("Driver closed")
 if __name__ == '__main__':
     parser = DromParser()
     parser.parse()

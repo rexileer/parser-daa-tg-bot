@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 PARSER_SCRIPTS = {
     "avito": "parsers/scripts/avito_parser.py",
     "drom": "parsers/scripts/drom_parser.py",
-    "auto_ru": "parsers/scripts/autoru_parser.py",
+    "autoru": "parsers/scripts/autoru_parser.py",
 }
 
 RUNNING_PROCESSES = {}  # Хранит {имя парсера: Process}
@@ -66,21 +66,31 @@ async def stop_parser(name):
 async def manage_parsers():
     """Управляет запущенными парсерами"""
     while True:
-        close_old_connections()
-        active_parsers = await get_active_parsers()
-        active_parsers_names = {p.name for p in active_parsers}
+        try:
+            close_old_connections()
+            active_parsers = await get_active_parsers()
+            active_parsers_names = {p.name for p in active_parsers}
 
-        # Запуск новых парсеров
-        for name in active_parsers_names:
-            if name not in RUNNING_PROCESSES and name in PARSER_SCRIPTS:
-                await start_parser(name, PARSER_SCRIPTS[name])
+            # Проверка состояния процессов
+            for name, process in list(RUNNING_PROCESSES.items()):
+                if not process.is_alive():
+                    logger.warning(f"Процесс {name} завершился неожиданно. Удаляем из списка.")
+                    del RUNNING_PROCESSES[name]
 
-        # Остановка неактивных парсеров
-        for name in list(RUNNING_PROCESSES.keys()):
-            if name not in active_parsers_names:
-                await stop_parser(name)
+            # Запуск новых парсеров
+            for name in active_parsers_names:
+                if name not in RUNNING_PROCESSES and name in PARSER_SCRIPTS:
+                    await start_parser(name, PARSER_SCRIPTS[name])
 
-        await asyncio.sleep(5)  # Проверяем состояние раз в 5 секунд
+            # Остановка неактивных парсеров
+            for name in list(RUNNING_PROCESSES.keys()):
+                if name not in active_parsers_names:
+                    await stop_parser(name)
+
+            await asyncio.sleep(5)  # Проверяем состояние раз в 5 секунд
+        except Exception as e:
+            logger.error(f"Ошибка в manage_parsers: {e}")
+
 
 def handle_exit(sig, frame):
     """Грейсфул-шатдаун: убиваем все процессы"""

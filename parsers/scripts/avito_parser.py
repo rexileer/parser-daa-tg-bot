@@ -245,8 +245,8 @@ class AvitoParser:
     
     
     def parse(self):
-        try:
-            while True:
+        while True:
+            try:
                 self.driver.delete_all_cookies()
                 url = "https://www.avito.ru/all/avtomobili?s=104"
                 self.logger.info("Opening avito.ru")
@@ -288,14 +288,14 @@ class AvitoParser:
                 
                 self._human_delay(5, 10)
                 
-        except Exception as ex:
-            # При ошибке выход на 5 минут, после - повторный запуск
-            self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
-            self.driver.quit()
-            self._human_delay(300, 350)
-            self.parse()
-        finally:
-            self.logger.info("Driver closed")
+            except Exception as ex:
+                # При ошибке выход на 5 минут, после - повторный запуск
+                self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
+                self.driver.quit()
+                self._human_delay(300, 350)
+                self.driver = self._init_driver()
+            finally:
+                self.logger.info("Driver closed")
 
 if __name__ == '__main__':
     parser = AvitoParser()
