@@ -3,11 +3,11 @@ def check_filters(ad, filters):
 
     # Для строковых фильтров проверяем, содержит ли объявление это значение
     def check_string_filter(ad_value, filter_value):
-        return filter_value == "unknown" or (filter_value.lower() in ad_value.lower())
+        return filter_value == "unknown" or ad_value == "unknown" or (filter_value.lower() in ad_value.lower())
 
     # Для числовых фильтров проверяем, попадает ли значение в диапазон
     def check_numeric_filter(ad_value, filter_value):
-        if filter_value == "unknown":
+        if filter_value == "unknown" or ad_value == "unknown":
             return True
         try:
             min_value, max_value = map(int, filter_value.split("-"))
@@ -15,8 +15,10 @@ def check_filters(ad, filters):
         except ValueError:
             return False  # Если значение не может быть преобразовано в диапазон, возвращаем False
 
-    if filters["platform"] and not any(check_string_filter(ad["platform"], platform) for platform in filters["platform"]):
-        return False
+    if filters.get("platform"):
+        platforms = filters["platform"] if isinstance(filters["platform"], list) else [filters["platform"]]
+        if not any(check_string_filter(ad["platform"], p) for p in platforms):
+            return False
 
     if filters["price"] and not check_numeric_filter(ad["price"], filters["price"]):
         return False

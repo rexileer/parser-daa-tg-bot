@@ -19,15 +19,16 @@ from users.models import UserFilters, User  # Импортируй свою мо
 from utils import check_filters  # Функция для проверки фильтров
 from config import REDIS_HOST, REDIS_PORT
 
-
 import logging
+# Импорт функций для оформления Markdown
+from aiogram.utils.markdown import text, bold, italic, link
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('bot_logs.log', mode='a')  # Запись логов в файл 'bot_logs.log'
+        logging.FileHandler('bot_logs.log', mode='a')
     ]
 )
 
@@ -37,46 +38,37 @@ bot = Bot(token=TOKEN)
 
 async def get_all_ads(redis_client: redis.Redis):
     """Получает все объявления из Redis."""
-    ad_keys = await redis_client.keys("*")  # Получаем все ключи
+    ad_keys = await redis_client.keys("*")
     ads = {}
-
     for ad_id in ad_keys:
         key_type = await redis_client.type(ad_id)
         if key_type != "string":
             continue  # Пропускаем нестроковые ключи
-        ad_data = await redis_client.get(ad_id)  # Получаем JSON объявления
+        ad_data = await redis_client.get(ad_id)
         if ad_data:
             try:
-                ads[ad_id] = ad_data  # Сохраняем объявление как есть, не парсим в json пока
+                ads[ad_id] = ad_data  # Сохраняем данные как есть
             except json.JSONDecodeError:
-                print(f"Ошибка декодирования JSON для объявления {ad_id}")
-    
+                logging.error(f"Ошибка декодирования JSON для объявления {ad_id}")
     return ads
 
 
 async def send_ads_by_filters(redis_client: redis.Redis):
     """Отправляет объявления пользователям по их фильтрам."""
-    
-    # Получаем все новые объявления из Redis
     ads = await get_all_ads(redis_client)
     logging.info(f"Найдено {len(ads)} объявлений")
     if not ads:
         return
 
-    # Получаем всех пользователей с фильтрами
     users_monitoring_enabled = await sync_to_async(list)(User.objects.filter(monitoring_enabled=True))
-    
     users = await sync_to_async(list)(UserFilters.objects.all())
-
-    # Получаем набор проверенных объявлений
-    checked_ads = await redis_client.smembers("ads:checked")  # Получаем все обработанные объявления
+    checked_ads = await redis_client.smembers("ads:checked")
 
     for ad_id, ad_data in ads.items():
         if ad_id in checked_ads:
             continue  # Пропускаем уже обработанное объявление
 
-        ad = json.loads(ad_data)  # Парсим данные объявления в json
-
+        ad = json.loads(ad_data)
         for user in users:
             if user.user_id in [u.user_id for u in users_monitoring_enabled]:
                 filters = {
@@ -97,7 +89,6 @@ async def send_ads_by_filters(redis_client: redis.Redis):
                     "steering": user.steering,
                     "ad_type": user.ad_type,
                 }
-
                 if check_filters(ad, filters):
                     await send_ad_to_user(user.user_id, ad)
                     logging.info(f"Отправлено объявление {ad_id} пользователю {user.user_id}")
@@ -106,47 +97,96 @@ async def send_ads_by_filters(redis_client: redis.Redis):
         await redis_client.sadd("ads:checked", ad_id)
 
 
+import logging
+
+# Вспомогательные функции для экранирования и оформления MarkdownV2
+def escape_md_v2(text: str) -> str:
+    """
+    Экранирует все спецсимволы, требуемые MarkdownV2.
+    Список символов: _ * [ ] ( ) ~ ` > # + - = | { } . !
+    """
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for ch in special_chars:
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
+def bold_md(text: str) -> str:
+    """Оформляет текст как жирный (MarkdownV2)."""
+    return f"*{text}*"
+
+def italic_md(text: str) -> str:
+    """Оформляет текст как курсив (MarkdownV2)."""
+    return f"_{text}_"
+
+def link_md(title: str, url: str) -> str:
+    """Оформляет ссылку (MarkdownV2)."""
+    return f"[{title}]({url})"
+
 async def send_ad_to_user(user_id, ad):
-    """Отправляет объявление пользователю."""
-    text = (
-        f" [{ad['name'].title()} ({ad['year']})]({ad['link']})\n\n"
-        f"💰 *Цена:* {ad['price']} ₽\n"
-        f"📍 *Город:* {ad['city'].title()}\n"
-        f"🚗 *Марка:* {ad['brand'].title()}\n"
-        f"🚗 *Модель:* {ad['model'].title()}\n"
-        f"📅 *Год:* {ad['year']}\n"
-        f"📱 *Платформа:* {ad['platform']}\n\n"
-        
-        f"🔧 *Параметры:*\n"
-        f"⛽ _Двигатель: {ad['engine']}_\n"
-        f"📏 _Пробег: {ad['mileage']} км_\n"
-        f"⚙️ _Коробка: {ad['gearbox']}_\n"
-        f"🔧 _Привод: {ad['drive']}_\n"
-        f"🚗 _Руль: {ad['steering']}_\n"
-        f"🏷 _Тип кузова: {ad['body_type']}_\n"
-        f"🎨 _Цвет: {ad['color']}_\n"
-        f"👤 _Владельцев: {ad['owners']}_\n"
-        f"🏷 _Состояние: {ad['condition']}_\n\n"
-        
-        f"🏢 *Продавец:* {ad['seller']}\n"
-        f"📜 *Тип объявления:* {ad['ad_type']}\n"
-        # f"🔗 *Ссылка:* {ad['link'].replace('_', r'\_')}"
+    """
+    Отправляет объявление пользователю. Динамические данные проходят экранирование,
+    затем форматируются с помощью функций bold_md, italic_md и link_md.
+    """
+    # Экранируем и форматируем все динамические поля
+    name = escape_md_v2(ad.get('name', '').title())
+    year = escape_md_v2(str(ad.get('year', '')))
+    ad_link = escape_md_v2(ad.get('link', ''))
+    price = escape_md_v2(str(ad.get('price', '')))
+    city = escape_md_v2(ad.get('city', '').title())
+    brand = escape_md_v2(ad.get('brand', '').title())
+    model = escape_md_v2(ad.get('model', '').title())
+    engine = escape_md_v2(ad.get('engine', ''))
+    mileage = escape_md_v2(str(ad.get('mileage', '')))
+    gearbox = escape_md_v2(ad.get('gearbox', ''))
+    drive = escape_md_v2(ad.get('drive', ''))
+    steering = escape_md_v2(ad.get('steering', ''))
+    body_type = escape_md_v2(ad.get('body_type', ''))
+    color = escape_md_v2(ad.get('color', ''))
+    owners = escape_md_v2(str(ad.get('owners', '')))
+    condition = escape_md_v2(ad.get('condition', ''))
+    seller = escape_md_v2(ad.get('seller', ''))
+    ad_type = escape_md_v2(ad.get('ad_type', ''))
+    platform = escape_md_v2(ad.get('platform', ''))
+
+    # Формируем текстовое сообщение с применением MarkdownV2
+    text_msg = (
+        f"{bold_md(name)}\n\n"
+        f"{bold_md('💰 Цена:')} {price} ₽\n"
+        f"{bold_md('📍 Город:')} {city}\n"
+        f"{bold_md('🚗 Марка:')} {brand}\n"
+        f"{bold_md('🚗 Модель:')} {model}\n"
+        f"{bold_md('📅 Год:')} {year}\n"
+        f"{bold_md('📱 Платформа:')} {platform}\n\n"
+        f"{bold_md('🔧 Параметры:')}\n"
+        f"{italic_md('⛽ Двигатель:')} {engine}\n"
+        f"{italic_md('📏 Пробег:')} {mileage} км\n"
+        f"{italic_md('⚙️ Коробка:')} {gearbox}\n"
+        f"{italic_md('🔧 Привод:')} {drive}\n"
+        f"{italic_md('🚗 Руль:')} {steering}\n"
+        f"{italic_md('🏷 Тип кузова:')} {body_type}\n"
+        f"{italic_md('🎨 Цвет:')} {color}\n"
+        f"{italic_md('👤 Владельцев:')} {owners}\n"
+        f"{italic_md('🏷 Состояние:')} {condition}\n\n"
+        f"{bold_md('🏢 Продавец:')} {seller}\n"
+        f"{bold_md('📜 Тип объявления:')} {ad_type}\n\n"
+        f"{link_md('Ссылка на объявление', ad_link)}\n"
     )
 
     try:
-        await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text, parse_mode="Markdown")
+        await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text_msg, parse_mode="MarkdownV2")
     except Exception as e:
-        print(f"❌ Ошибка photo пользователю {user_id}: {e}, объявление: {ad}")
-        await bot.send_message(chat_id=user_id, text=text, parse_mode="Markdown")
+        logging.error(f"❌ Ошибка отправки пользователю {user_id}: {e}, объявление: {ad}")
+        await bot.send_message(chat_id=user_id, text=text_msg, parse_mode="MarkdownV2")
+
+
 
 async def main():
     redis_client = await redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-
     while True:
         await send_ads_by_filters(redis_client)
         logging.info("Проверка фильтров завершена, ждем 30 секунд...")
-        await asyncio.sleep(30)  # Проверять каждые 30 секунд
-        close_old_connections()  # Закрываем старые соединения с БД
+        await asyncio.sleep(30)
+        close_old_connections()
 
 if __name__ == "__main__":
     asyncio.run(main())
