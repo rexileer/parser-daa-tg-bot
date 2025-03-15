@@ -129,15 +129,15 @@ async def send_ad_to_user(user_id, ad):
         f"🏷 _Состояние: {ad['condition']}_\n\n"
         
         f"🏢 *Продавец:* {ad['seller']}\n"
-        f"📜 *Тип объявления:* {ad['ad_type']}"
+        f"📜 *Тип объявления:* {ad['ad_type']}\n"
         # f"🔗 *Ссылка:* {ad['link'].replace('_', r'\_')}"
     )
 
     try:
-        await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text)
+        await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text, parse_mode="Markdown")
     except Exception as e:
-        print(f"❌ Ошибка отправки пользователю {user_id}: {e}")
-        await bot.send_message(chat_id=user_id, text=text)
+        print(f"❌ Ошибка photo пользователю {user_id}: {e}, объявление: {ad}")
+        await bot.send_message(chat_id=user_id, text=text, parse_mode="Markdown")
 
 async def main():
     redis_client = await redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
