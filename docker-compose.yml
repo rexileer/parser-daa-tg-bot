@@ -11,6 +11,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -20,6 +22,8 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_HOST=db
       - POSTGRES_PORT=${POSTGRES_PORT}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     command: python manage.py runserver 0.0.0.0:8000
 
   db:
@@ -38,6 +42,21 @@ services:
       interval: 5s
       retries: 5
 
+  redis:
+    image: redis:latest
+    container_name: redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      timeout: 10s
+    ports:
+      - "6379:6379"
+    restart: always
+
   bot:
     build:
       context: .
@@ -46,6 +65,8 @@ services:
       - .:/app
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     env_file:
       - .env
@@ -56,8 +77,34 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_HOST=db
       - POSTGRES_PORT=${POSTGRES_PORT}
-
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     command: python bot/tg_bot.py
+
+  chrome_driver:
+    image: selenium/standalone-chrome:latest
+    container_name: chrome_driver
+    ports:
+      - "4444:4444"
+    environment:
+      - SE_NODE_MAX_INSTANCES=3
+      - SE_NODE_MAX_SESSIONS=6
+    shm_size: 6gb
+    restart: always
+
+  parsers:
+    build:
+      context: .
+    container_name: parsers
+    depends_on:
+      - chrome_driver
+      - redis
+      - db
+    volumes:
+      - .:/app
+    command: sh -c "sleep 10 && python parsers/manager.py"  # Добавлена задержка перед запуском скрипта
+    restart: always
 
 volumes:
   postgres_data:
+  redis_data:

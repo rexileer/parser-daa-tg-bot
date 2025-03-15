@@ -17,6 +17,8 @@ from django.db import close_old_connections
 
 from users.models import UserFilters, User  # Импортируй свою модель
 from utils import check_filters  # Функция для проверки фильтров
+from config import REDIS_HOST, REDIS_PORT
+
 
 import logging
 
@@ -138,7 +140,7 @@ async def send_ad_to_user(user_id, ad):
         await bot.send_message(chat_id=user_id, text=text, parse_mode="Markdown")
 
 async def main():
-    redis_client = await redis.Redis(host="localhost", port=6379, decode_responses=True)
+    redis_client = await redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
     while True:
         await send_ads_by_filters(redis_client)

@@ -10,9 +10,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from fake_useragent import UserAgent, FakeUserAgentError
+from config import REDIS_HOST, REDIS_PORT
 
 class AvitoParser:
-    def __init__(self, redis_host='localhost', redis_port=6379, redis_db=0):
+    def __init__(self, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0):
         self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
         self.driver = self._init_driver()
         self.logger = self._init_logger()
@@ -41,7 +42,10 @@ class AvitoParser:
         options.add_argument("--disable-renderer-backgrounding")
         options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
         options.add_experimental_option('useAutomationExtension', False)
-        driver = webdriver.Chrome(options=options)
+        driver = webdriver.Remote(
+            command_executor="http://chrome_driver:4444/wd/hub",
+            options=options,
+            )
         driver.implicitly_wait(1)
         return driver
     
@@ -241,8 +245,8 @@ class AvitoParser:
     
     
     def parse(self):
-        try:
-            while True:
+        while True:
+            try:
                 self.driver.delete_all_cookies()
                 url = "https://www.avito.ru/all/avtomobili?s=104"
                 self.logger.info("Opening avito.ru")
@@ -284,14 +288,14 @@ class AvitoParser:
                 
                 self._human_delay(5, 10)
                 
-        except Exception as ex:
-            # При ошибке выход на 5 минут, после - повторный запуск
-            self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
-            self.driver.quit()
-            self._human_delay(300, 350)
-            self.parse()
-        finally:
-            self.logger.info("Driver closed")
+            except Exception as ex:
+                # При ошибке выход на 5 минут, после - повторный запуск
+                self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
+                self.driver.quit()
+                self._human_delay(300, 350)
+                self.driver = self._init_driver()
+            finally:
+                self.logger.info("Driver closed")
 
 if __name__ == '__main__':
     parser = AvitoParser()

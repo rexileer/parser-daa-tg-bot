@@ -36,22 +36,25 @@ logger = logging.getLogger(__name__)
 load_dotenv(encoding='utf-8')
 
 async def main():
-    bot = Bot(os.getenv('TELEGRAM_BOT_TOKEN'), default=DefaultBotProperties(parse_mode='HTML'))
-    dp = Dispatcher()
-    
-    dp.include_routers(
-        start_command.router,
-        monitoring_handler.router,
-        filters_handler.router,
-        filters_callback.router,
-        filters_check_callback.router,
-    )
-    
-    await asyncio.gather(
-        bot.delete_webhook(drop_pending_updates=True),
-        dp.start_polling(bot),
-        start_ads_sender(),
-    )
+    try:
+        bot = Bot(os.getenv('TELEGRAM_BOT_TOKEN'), default=DefaultBotProperties(parse_mode='HTML'))
+        dp = Dispatcher()
+        
+        dp.include_routers(
+            start_command.router,
+            monitoring_handler.router,
+            filters_handler.router,
+            filters_callback.router,
+            filters_check_callback.router,
+        )
+        
+        await asyncio.gather(
+            bot.delete_webhook(drop_pending_updates=True),
+            dp.start_polling(bot),
+            start_ads_sender(),
+        )
+    finally:
+        await bot.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
