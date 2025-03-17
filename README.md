@@ -1,2 +1,55 @@
-# parser-daa-tg-bot
- Парсер Дром, Авто.ру, Авито
+# Parser DAA Telegram Bot
+
+## Описание проекта
+Этот проект представляет собой Telegram-бота для мониторинга объявлений на Avito, Drom и Auto.ru. Бот использует Selenium для парсинга новых объявлений и фильтрует их по заданным пользователями параметрам. Новые объявления временно хранятся в Redis, а затем рассылаются пользователям.
+
+## Требования
+- Git
+- Docker & Docker Compose
+
+## Установка и запуск
+
+### 1. Клонирование репозитория
+```sh
+git clone <repo_url>
+cd parser-daa-tg-bot
+```
+
+### 2. Настройка переменных окружения
+Создайте файл `.env` и укажите в нем:
+```
+DEBUG=True
+TELEGRAM_BOT_TOKEN=<ваш_токен>
+DJANGO_SECRET_KEY=<секретный_ключ>
+POSTGRES_DB=testdb
+POSTGRES_USER=testuser
+POSTGRES_PASSWORD=testpass
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
+
+### 3. Запуск проекта с Docker
+```sh
+docker-compose up --build -d
+```
+
+### 4. Настройка базы данных и админки
+После запуска контейнеров выполните настройку базы данных и Django-админки:
+```sh
+docker-compose exec web python manage.py migrate
+docker-compose exec web python manage.py createsuperuser
+```
+Затем зайдите в Django-админку и добавьте в качестве сайтов для парсинга avito, drom и autoru
+
+## Основные модули
+- **bot/** – Telegram-бот и логика обработки сообщений
+- **parsers/** – парсинг Avito, Drom и Auto.ru с использованием Selenium
+- **core/** – основные утилиты и настройки
+- **users/** – управление пользователями и их фильтрами
+- **editing/** – добавление и редактирование приветственного сообщения
+
+## Лицензия
+Проект распространяется под лицензией MIT.
+
