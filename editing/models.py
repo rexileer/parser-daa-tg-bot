@@ -10,4 +10,8 @@ class StartCommandResponse(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.text[:50]
+        return "Приветственное сообщение"
+    
+    class Meta:
+        verbose_name = 'Приветственное сообщение'
+        verbose_name_plural = 'Приветственное сообщение'

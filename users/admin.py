@@ -1,6 +1,8 @@
 from django.contrib import admin
 from .models import User, UserFilters
 
+admin.site.site_header = "Пользователи Telegram"
+
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = ("user_id", "name", "monitoring_enabled")  # Отображение в админке

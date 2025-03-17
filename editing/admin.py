@@ -1,6 +1,8 @@
 from django.contrib import admin
 from .models import StartCommandResponse
 
+admin.site.site_header = "Редактирование"
+
 @admin.register(StartCommandResponse)
 class StartCommandResponseAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):

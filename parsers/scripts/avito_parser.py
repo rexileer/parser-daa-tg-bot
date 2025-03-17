@@ -204,6 +204,12 @@ class AvitoParser:
             brand, model = self._extract_brand_model(ad['title'])
             characteristics = self._parse_characteristics()
             # Парсинг деталей
+            try:
+                WebDriverWait(self.driver, 10).until(self.driver.find_element(By.CSS_SELECTOR, "div[data-marker^='seller-info/label'"))
+                seller = self.driver.find_element(By.CSS_SELECTOR, "div[data-marker^='seller-info/label'").text
+            except Exception as e:
+                seller = "unknown"
+                self.logger.info(f"Error parsing seller: {e}")
             image = self.driver.find_element(By.CSS_SELECTOR, "div[data-marker='image-frame/image-wrapper'] img").get_attribute("src")
             details = {
                 "platform" : "avito",
@@ -231,7 +237,7 @@ class AvitoParser:
                 
                 # Тип объявления и продавец
                 "ad_type": None,
-                "seller": self.driver.find_element(By.CSS_SELECTOR, "div[data-marker^='seller-info/label'").text,
+                "seller": seller,
             }
             ad_id = self._extract_avito_id(ad['link'])
             normalized_details = self._normalize_car_data(details)

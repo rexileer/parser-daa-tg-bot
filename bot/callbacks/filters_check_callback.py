@@ -14,7 +14,7 @@ async def edit_filter_callback(callback: CallbackQuery):
     filters_text = await get_user_filters_explain()
     
     keyboard = filters_keyboard()
-    await callback.message.answer(filters_text, reply_markup=keyboard, parse_mode="Markdown")
+    await callback.message.edit_text(filters_text, reply_markup=keyboard, parse_mode="Markdown")
     
 @router.callback_query(F.data == "start_filtering")
 async def start_filtering_callback(callback: CallbackQuery):
@@ -23,4 +23,4 @@ async def start_filtering_callback(callback: CallbackQuery):
     logger.info(f"Monitoring is enabled for user {user_id}")
     filters_text = "Мониторинг запущен!"
 
-    await callback.message.answer(filters_text)
+    await callback.message.edit_text(filters_text)

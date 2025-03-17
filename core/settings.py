@@ -11,7 +11,9 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
 DEBUG = os.getenv('DEBUG', False)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*', '95.24.176.97', 'bd3d-194-85-249-14.ngrok-free.app']
+
+CSRF_TRUSTED_ORIGINS = ['https://bd3d-194-85-249-14.ngrok-free.app']
 
 INSTALLED_APPS = [
     'django.contrib.admin',

@@ -156,7 +156,7 @@ async def send_ad_to_user(user_id, ad):
         f"{bold_md('🚗 Марка:')} {brand}\n"
         f"{bold_md('🚗 Модель:')} {model}\n"
         f"{bold_md('📅 Год:')} {year}\n"
-        f"{bold_md('📱 Платформа:')} {platform}\n\n"
+        f"{bold_md('📱 Площадка:')} {platform}\n\n"
         f"{bold_md('🔧 Параметры:')}\n"
         f"{italic_md('⛽ Двигатель:')} {engine}\n"
         f"{italic_md('📏 Пробег:')} {mileage} км\n"

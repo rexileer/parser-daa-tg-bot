@@ -7,6 +7,10 @@ class User(models.Model):
 
     def __str__(self):
         return f"{self.user_id} - {'Вкл' if self.monitoring_enabled else 'Выкл'}"
+    
+    class Meta:
+        verbose_name = "Пользователь Telegram"
+        verbose_name_plural = "Пользователи Telegram"
 
 
 class UserFilters(models.Model):

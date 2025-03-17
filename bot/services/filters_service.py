@@ -5,7 +5,7 @@ async def get_user_filters_explain() -> str:
 
     return (
         f"⚙️ *Описание фильтров*\n\n"
-        f"• *Выбранные платформы:* _drom, autoru, avito_ \n"
+        f"• *Выбранные площадки:* _drom, autoru, avito_ \n"
         f"• *Выбранный год выпуска:* _1900-2023_ \n"
         f"• *Выбранная цена:* _0-99999999_ \n"
         f"• *Выбранные города:* _название города_ \n"
@@ -32,7 +32,7 @@ async def get_user_filters(user_id: int) -> str:
     
     return (
         f"⚙️ *Выбранные фильтры*\n\n"
-        f"• *Выбранные платформы:* {filters.platform or 'Не указано'}\n"
+        f"• *Выбранные площадки:* {filters.platform or 'Не указано'}\n"
         f"• *Выбранный год выпуска:* {filters.year or 'Не указано'}\n"
         f"• *Выбранная цена:* {filters.price or 'Не указано'}\n"
         f"• *Выбранные города:* {filters.city or 'Не указано'}\n"

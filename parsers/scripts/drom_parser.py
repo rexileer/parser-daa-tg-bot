@@ -75,10 +75,12 @@ class DromParser:
         actions = ActionChains(self.driver)
         
         # Найдем элемент на странице, к которому будем перемещать мышь
-        submit_button = WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "a[data-ftid='component_header_add-bull']"))
-        )
-        
+        try:
+            submit_button = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "a[data-ftid='component_header_add-bull']"))
+            )
+        except:
+            return
         for _ in range(random.randint(min_time, max_time)):
             # Генерация случайных смещений
             offset_x = random.randint(10, 50)
@@ -205,7 +207,7 @@ class DromParser:
 
     def _parse_details(self, ad):
         self.driver.get(ad['link'])
-        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
+        # WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
         self._human_mouse(1, 2)
         self._human_delay(1, 3)
         

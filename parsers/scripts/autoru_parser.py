@@ -255,7 +255,7 @@ class AutoruParser:
                 self._human_delay()
                 self._human_mouse(1, 2)
                 try:
-                    WebDriverWait(self.driver, 20).until(
+                    WebDriverWait(self.driver, 60).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='ListingItem']"))
                     )
                     self.logger.info("Объявления загружены, начинаем парсинг")

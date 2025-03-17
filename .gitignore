@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 cookies.pkl
 dump.rdb
+ngrok.exe
