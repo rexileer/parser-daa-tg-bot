@@ -170,12 +170,12 @@ class AutoruParser:
             "mileage": __normalize_int(raw_data.get("mileage"), default="unknown"),
             "engine": __normalize_str(raw_data.get("engine")),
             "color": __normalize_str(raw_data.get("color")),
-            "gearbox": __normalize_str(raw_data.get("gearbox")),
+            "gearbox": "механика" if __normalize_str(raw_data.get("gearbox")) == "механическая" else __normalize_str(raw_data.get("gearbox")),
             "drive": __normalize_str(raw_data.get("drive")),
             "steering": __normalize_str(raw_data.get("steering")),
             "owners": __normalize_int(raw_data.get("owners"), default="unknown"),
             "body_type": __normalize_str(raw_data.get("body_type")),
-            "condition": __normalize_str(raw_data.get("condition")),
+            "condition": "не битый" if __normalize_str(raw_data.get("condition")) == "не требует ремонта" else __normalize_str(raw_data.get("condition")),
             "ad_type": ad_type_mapping.get(__normalize_str(raw_data.get("ad_type")), "unknown"),
             "seller": seller_mapping.get(__normalize_str(raw_data.get("seller")), "unknown")
         }

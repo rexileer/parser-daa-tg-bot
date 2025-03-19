@@ -195,7 +195,7 @@ class DromParser:
             "mileage": __normalize_int(raw_data.get("mileage"), default="unknown"),
             "engine": __normalize_str(raw_data.get("engine")),
             "color": __normalize_str(raw_data.get("color")),
-            "gearbox": __normalize_str(raw_data.get("gearbox")),
+            "gearbox": "автомат" if __normalize_str(raw_data.get("gearbox")) == "акпп" else __normalize_str(raw_data.get("gearbox")),
             "drive":__normalize_str(raw_data.get("drive")),
             "steering": __normalize_str(raw_data.get("steering")),
             "owners": __normalize_int(raw_data.get("owners"), default="unknown"),
