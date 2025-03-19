@@ -20,8 +20,7 @@ from utils import check_filters  # Функция для проверки фил
 from config import REDIS_HOST, REDIS_PORT
 
 import logging
-# Импорт функций для оформления Markdown
-from aiogram.utils.markdown import text, bold, italic, link
+
 
 logging.basicConfig(
     level=logging.INFO,

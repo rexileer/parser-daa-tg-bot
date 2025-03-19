@@ -18,6 +18,7 @@ from commands import start_command
 from handlers import monitoring_handler, filters_handler
 from callbacks import filters_callback, filters_check_callback
 from ads_sender import main as start_ads_sender
+from broadcast_sender import broadcast_loop as start_broadcast_sender
 
 import logging
 
@@ -51,6 +52,7 @@ async def main():
         await asyncio.gather(
             bot.delete_webhook(drop_pending_updates=True),
             dp.start_polling(bot),
+            start_broadcast_sender(bot),
             start_ads_sender(),
         )
     finally:

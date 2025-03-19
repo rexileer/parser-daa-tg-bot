@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.timezone import now
 
 class StartCommandResponse(models.Model):
     text = models.TextField()
@@ -15,3 +16,19 @@ class StartCommandResponse(models.Model):
     class Meta:
         verbose_name = 'Приветственное сообщение'
         verbose_name_plural = 'Приветственное сообщение'
+
+
+
+class BroadcastMessage(models.Model):
+    text = models.TextField("Текст сообщения", blank=True, null=True)
+    image = models.ImageField("Изображение", upload_to="media/", blank=True, null=True)
+    video = models.FileField("Видео", upload_to="media/", blank=True, null=True)
+    send_time = models.DateTimeField("Время отправки", default=now)
+    is_sent = models.BooleanField("Отправлено", default=False)
+
+    def __str__(self):
+        return f"Рассылка {self.id} на {self.send_time}"
+    
+    class Meta:
+        verbose_name = 'Рассылка'
+        verbose_name_plural = 'Рассылки'
