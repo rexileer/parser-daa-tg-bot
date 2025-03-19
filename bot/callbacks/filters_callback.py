@@ -5,6 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from services.filters_service import update_user_filter, get_user_filters
 from keyboards.inline.check_filters_kb import check_filters_keyboard
+from keyboards.inline.filters_mapping_kb import filter_keyboard
 from .filter_mapping import FILTER_MAPPING_LANGUAGE, FILTER_MAPPING_DESCRIPTION
 
 
@@ -28,11 +29,13 @@ async def filter_handler(callback: CallbackQuery, state: FSMContext):
     if not filter_name:
         await callback.message.answer("❌ Ошибка: фильтр не найден.")
         return
+    keyboard = filter_keyboard(filter_name_rus)
     await state.update_data(selected_filter=filter_name)  # Сохраняем выбранный фильтр в state
     await state.update_data(selected_filter_rus=filter_name_rus)  # Сохраняем выбранный фильтр в state
     sent_message = await callback.message.answer(
         f"Введите значение для {filter_name_rus}\n"
-        f"Формат: «{filter_description}»"
+        f"Формат: «{filter_description}»",
+        reply_markup=keyboard
     )
     await state.update_data(sent_message=sent_message)
     await state.set_state(FilterStates.entering_value)  # Устанавливаем состояние
@@ -57,6 +60,24 @@ async def save_filter_value(message: Message, state: FSMContext):
     await message.answer(f"✅ Фильтр {filter_name_rus} обновлён: {filter_value}")
     
     await state.clear()  # Очищаем состояние
+
+@router.callback_query(F.data.startswith("value_filter_"))
+async def save_filter_value_inline(callback: CallbackQuery, state: FSMContext):
+    try:
+        user_id = callback.from_user.id
+        user_data = await state.get_data()  # Получаем данные из state
+        filter_name = user_data.get("selected_filter")  # Достаём сохранённый фильтр
+        filter_name_rus = user_data.get("selected_filter_rus")
+        sented_message = user_data.get("sent_message")  # Достаём отправленное сообщение
+        await sented_message.delete()  # Удаляем отправленное сообщение
+        filter_value = callback.data.replace(f"value_filter_{filter_name_rus}_", "")
+        
+        await update_user_filter(user_id, filter_name, filter_value)  # Сохраняем в БД
+        await callback.message.answer(f"✅ Фильтр {filter_name_rus} обновлён: {filter_value}")
+        
+        await state.clear()  # Очищаем состояние
+    except Exception as e:
+        await callback.message.answer(f"❌ Ошибка: {e}")
 
 @router.callback_query(F.data == "check_filters")
 async def check_filters(callback: CallbackQuery):
