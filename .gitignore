@@ -161,3 +161,4 @@ cython_debug/
 cookies.pkl
 dump.rdb
 ngrok.exe
+/media
