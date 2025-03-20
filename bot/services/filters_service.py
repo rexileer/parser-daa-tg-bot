@@ -1,4 +1,5 @@
 from users.models import UserFilters
+from django.contrib.postgres.fields import ArrayField
 
 async def get_user_filters_explain() -> str:
     """ Получает фильтры пользователя из БД и форматирует их для вывода """
@@ -19,7 +20,7 @@ async def get_user_filters_explain() -> str:
         f"• *Выбранное кол-во владельцев:* _0-99_ \n"
         f"• *Выбранный тип кузова:* _тип кузова_ \n"
         f"• *Выбранное состояние:* _битый, не битый_ \n"
-        f"• *Тип объявлений:* _новый, второй рынок_ \n"
+        f"• *Тип объявлений:* _новый, б/у_ \n"
         f"• *Выбранный тип продавца:* _компания, частное лицо_ \n"
     )
 
@@ -46,7 +47,7 @@ async def get_user_filters(user_id: int) -> str:
         f"• *Выбранное кол-во владельцев:* {filters.owners or 'Не указано'}\n"
         f"• *Выбранный тип кузова:* {filters.body_type or 'Не указано'}\n"
         f"• *Выбранное состояние:* {filters.condition or 'Не указано'}\n"
-        f"• *Тип объявлений:* {filters.ad_type or 'Не указано'}\n"
+        f"• *Выбранный тип объявлений:* {filters.ad_type or 'Не указано'}\n"
         f"• *Выбранный тип продавца:* {filters.seller or 'Не указано'}\n"
     )
 
@@ -55,6 +56,42 @@ async def get_user_filters_from_db(user_id: int):
     return filters
 
 async def update_user_filter(user_id: int, field: str, value: str):
+    """
+    Обновляет значение фильтра для пользователя.
+    
+    Если поле является ArrayField:
+      - Если value содержит запятую (", "), значит, это ручной ввод нескольких значений,
+        и они преобразуются в список.
+      - Если value не содержит запятую, происходит переключение выбранного значения:
+        если значение уже присутствует в списке – оно удаляется, иначе – добавляется.
+    
+    Если поле является обычным CharField, значение сохраняется как строка.
+    """
     filters, _ = await UserFilters.objects.aget_or_create(user_id=user_id)
-    setattr(filters, field, value)  # Динамическое обновление поля
+    
+    # Получаем объект поля по его имени
+    model_field = UserFilters._meta.get_field(field)
+    
+    if isinstance(model_field, ArrayField):
+        # Получаем текущее значение поля (список) или создаём пустой список
+        current_values = getattr(filters, field) or []
+        
+        if ", " in value:
+            # Ручной ввод нескольких значений, например: "val1, val2, val3"
+            new_values = [v.strip() for v in value.split(",")]
+        else:
+            # Inline-обновление: переключаем значение
+            if value in current_values:
+                new_values = [v for v in current_values if v != value]
+            else:
+                new_values = current_values + [value]
+        setattr(filters, field, new_values)
+    else:
+        # Для обычного текстового поля сохраняем значение напрямую
+        setattr(filters, field, value)
+    
     await filters.asave()
+    
+async def get_user_filter_values(user_id: int, field: str):
+    filters = await get_user_filters_from_db(user_id)
+    return getattr(filters, field) or []

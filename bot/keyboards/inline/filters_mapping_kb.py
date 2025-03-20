@@ -17,15 +17,35 @@ FILTER_MAPPING_KB = {
     "Цвет кузова": None,
     "Привод": ["полный", "передний", "задний"],
     "Руль": ["левый", "правый"],
-    "Тип объявлений": ["второй рынок", "новый"],
+    "Тип объявлений": ["б/у", "новый"],
 }
-
-def filter_keyboard(filter_name: str) -> InlineKeyboardMarkup:
+     
+def filter_keyboard(filter_name: str, selected_values=None) -> InlineKeyboardMarkup:
+    if selected_values is None:
+        selected_values = []
     inline_keyboard = []
-
-    if filter_name in FILTER_MAPPING_KB and FILTER_MAPPING_KB[filter_name] != None:
-        for filter_value in FILTER_MAPPING_KB[filter_name]:
-            inline_keyboard.append([InlineKeyboardButton(text=filter_value, callback_data=f"value_filter_{filter_name}_{filter_value}")])
+    options = FILTER_MAPPING_KB.get(filter_name)
+    if options:
+        for option in options:
+            # Если значение выбрано, добавляем галочку, иначе – крестик (или другой символ)
+            if option in selected_values:
+                text = f"✅ {option}"
+            else:
+                text = f"{option}"
+            inline_keyboard.append([InlineKeyboardButton(
+                text=text,
+                callback_data=f"toggle_filter_{filter_name}_{option}"
+            )])
+        # Кнопка "Назад" для завершения выбора
+        inline_keyboard.append([InlineKeyboardButton(
+            text="📜 Назад",
+            callback_data="filters_edit",
+        )])
         return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
-        
     return None
+
+def filter_keyboard_back_button() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text="📜 Назад",
+        callback_data="filters_edit",
+    )]])

@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 
 class User(models.Model):
     name = models.CharField(max_length=255, null=True, blank=True)
@@ -15,22 +16,22 @@ class User(models.Model):
 
 class UserFilters(models.Model):
     user_id = models.BigIntegerField(unique=True)  # Telegram ID пользователя
-    platform = models.CharField(max_length=50, blank=True, null=True)  # Площадка
+    platform = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Площадка
     price = models.CharField(max_length=50, blank=True, null=True)  # Цена
-    brand = models.CharField(max_length=50, blank=True, null=True)  # Марка
-    engine = models.CharField(max_length=50, blank=True, null=True)  # Двигатель
+    brand = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Марка
+    engine = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Двигатель
     mileage = models.CharField(max_length=50, blank=True, null=True)  # Пробег
-    gearbox = models.CharField(max_length=50, blank=True, null=True)  # Коробка передач
+    gearbox = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Коробка передач
     owners = models.CharField(max_length=50, blank=True, null=True)  # Кол-во владельцев
-    condition = models.CharField(max_length=50, blank=True, null=True)  # Состояние
-    seller = models.CharField(max_length=50, blank=True, null=True)  # Продавец
-    city = models.CharField(max_length=50, blank=True, null=True)  # Город
+    condition = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Состояние
+    seller = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Продавец
+    city = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Город
     year = models.CharField(max_length=50, blank=True, null=True)  # Год выпуска
-    body_type = models.CharField(max_length=50, blank=True, null=True)  # Тип кузова
-    color = models.CharField(max_length=50, blank=True, null=True)  # Цвет кузова
-    drive = models.CharField(max_length=50, blank=True, null=True)  # Привод
-    steering = models.CharField(max_length=50, blank=True, null=True)  # Руль
-    ad_type = models.CharField(max_length=50, blank=True, null=True)  # Тип объявлений
+    body_type = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Тип кузова
+    color = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Цвет кузова
+    drive = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Привод
+    steering = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Руль
+    ad_type = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)  # Тип объявлений
 
     class Meta:
         verbose_name = "Фильтр пользователя"

@@ -222,8 +222,8 @@ class AutoruParser:
                 "owners": characteristics.get('Владельцы'),
                 "body_type": characteristics.get('Кузов'),
                 "condition": characteristics.get('Состояние'),
-                "ad_type": "new" if extracted_info and extracted_info[0] == "new/group" else "used",
-                "seller": "group" if extracted_info and extracted_info[0] == "new/group" else "private",
+                "ad_type": "новый" if extracted_info and extracted_info[0] == "new/group" else "б/у",
+                "seller": "компания" if extracted_info and extracted_info[0] == "new/group" else "частное лицо",
             }
             ad_id = self._extract_autoru_id(ad['link'])
             normalized_details = self._normalize_car_data(details)

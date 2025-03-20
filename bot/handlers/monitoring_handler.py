@@ -13,6 +13,7 @@ async def start_monitoring_handler(message: Message):
     user_id = message.from_user.id
     await enable_monitoring(user_id=user_id)
     logger.info(f"Monitoring is enabled for user {user_id}")
+    await message.delete()
     await message.answer("Мониторинг включен")
 
 
@@ -21,4 +22,5 @@ async def stop_monitoring_handler(message: Message):
     user_id = message.from_user.id
     await disable_monitoring(user_id=user_id)
     logger.info(f"Monitoring is disabled for user {user_id}")
+    await message.delete()
     await message.answer("Мониторинг выключен")

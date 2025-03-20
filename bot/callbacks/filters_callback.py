@@ -3,9 +3,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import State, StatesGroup
 
-from services.filters_service import update_user_filter, get_user_filters
+from services.filters_service import update_user_filter, get_user_filters, get_user_filter_values
 from keyboards.inline.check_filters_kb import check_filters_keyboard
-from keyboards.inline.filters_mapping_kb import filter_keyboard
+from keyboards.inline.filters_mapping_kb import filter_keyboard, filter_keyboard_back_button
 from .filter_mapping import FILTER_MAPPING_LANGUAGE, FILTER_MAPPING_DESCRIPTION
 
 
@@ -16,29 +16,28 @@ router = Router()
 
 @router.callback_query(F.data.startswith("filter_"))
 async def filter_handler(callback: CallbackQuery, state: FSMContext):
-    # Проверяем, есть ли сохранённое сообщение с запросом и удаляем его, если оно существует
-    data = await state.get_data()
-    old_message = data.get("sent_message")
-    if old_message:
-        await old_message.delete()
-
     filter_name_rus = callback.data.replace("filter_", "")  # Русское название
     filter_name = FILTER_MAPPING_LANGUAGE.get(filter_name_rus)  # Перевод в поле модели
     filter_description = FILTER_MAPPING_DESCRIPTION.get(filter_name_rus)
-
+    
     if not filter_name:
         await callback.message.answer("❌ Ошибка: фильтр не найден.")
         return
-    keyboard = filter_keyboard(filter_name_rus)
-    await state.update_data(selected_filter=filter_name)  # Сохраняем выбранный фильтр в state
-    await state.update_data(selected_filter_rus=filter_name_rus)  # Сохраняем выбранный фильтр в state
-    sent_message = await callback.message.answer(
+    
+    current_values = await get_user_filter_values(callback.from_user.id, filter_name)
+    keyboard = filter_keyboard(filter_name_rus, current_values)
+    
+    sent_message = await callback.message.edit_text(
         f"Введите значение для {filter_name_rus}\n"
         f"Формат: «{filter_description}»",
-        reply_markup=keyboard
+        reply_markup=keyboard if keyboard else filter_keyboard_back_button(),
     )
-    await state.update_data(sent_message=sent_message)
-    await state.set_state(FilterStates.entering_value)  # Устанавливаем состояние
+
+    if not keyboard:
+        await state.update_data(sent_message=sent_message)
+        await state.update_data(selected_filter=filter_name)  # Сохраняем выбранный фильтр в state
+        await state.update_data(selected_filter_rus=filter_name_rus)  # Сохраняем выбранный фильтр в state
+        await state.set_state(FilterStates.entering_value)  # Устанавливаем состояние
 
 
 @router.message(FilterStates.entering_value)
@@ -57,25 +56,24 @@ async def save_filter_value(message: Message, state: FSMContext):
         return
     
     await update_user_filter(user_id, filter_name, filter_value)  # Сохраняем в БД
-    await message.answer(f"✅ Фильтр {filter_name_rus} обновлён: {filter_value}")
+    await message.answer(f"✅ Фильтр {filter_name_rus} обновлён: {filter_value}", reply_markup=filter_keyboard_back_button())
     
     await state.clear()  # Очищаем состояние
 
-@router.callback_query(F.data.startswith("value_filter_"))
-async def save_filter_value_inline(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data.startswith("toggle_filter_"))
+async def save_filter_value_inline(callback: CallbackQuery):
     try:
+        filter_name_rus, value = callback.data.split("_")[2:]
         user_id = callback.from_user.id
-        user_data = await state.get_data()  # Получаем данные из state
-        filter_name = user_data.get("selected_filter")  # Достаём сохранённый фильтр
-        filter_name_rus = user_data.get("selected_filter_rus")
-        sented_message = user_data.get("sent_message")  # Достаём отправленное сообщение
-        await sented_message.delete()  # Удаляем отправленное сообщение
-        filter_value = callback.data.replace(f"value_filter_{filter_name_rus}_", "")
+        filter_name_eng = FILTER_MAPPING_LANGUAGE.get(filter_name_rus)  # Достаём сохранённый фильтр
         
-        await update_user_filter(user_id, filter_name, filter_value)  # Сохраняем в БД
-        await callback.message.answer(f"✅ Фильтр {filter_name_rus} обновлён: {filter_value}")
+        await update_user_filter(user_id, filter_name_eng, value)  # Сохраняем в БД
         
-        await state.clear()  # Очищаем состояние
+        current_values = await get_user_filter_values(user_id, filter_name_eng)
+        keyboard = filter_keyboard(filter_name_rus, current_values)
+        
+        await callback.message.edit_reply_markup(reply_markup=keyboard)  # Обновляем клавиатуру
+        
     except Exception as e:
         await callback.message.answer(f"❌ Ошибка: {e}")
 

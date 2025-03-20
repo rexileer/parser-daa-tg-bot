@@ -15,4 +15,5 @@ async def start(message: Message):
     logger.info(f"Received /start command from {message.from_user.id}")
     keyboard = start_keyboard
     text = await get_start_message()
+    await message.delete()
     await message.answer(text, reply_markup=keyboard)
