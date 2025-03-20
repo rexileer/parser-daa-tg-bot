@@ -1,5 +1,9 @@
 from django.contrib import admin
 from .models import StartCommandResponse, BroadcastMessage
+from django.utils.html import format_html
+from django.db import models
+from django.forms import FileInput
+
 
 admin.site.site_header = "Редактирование"
 
@@ -12,35 +16,36 @@ class StartCommandResponseAdmin(admin.ModelAdmin):
         return False  # Запрещаем удаление
 
 
+
 @admin.register(BroadcastMessage)
 class BroadcastMessageAdmin(admin.ModelAdmin):
     list_display = ("id", "send_time", "is_sent", "media_display")
     list_filter = ("is_sent",)
     ordering = ("send_time",)
+    readonly_fields = ("media_preview",)
 
-    # Метод для отображения медиафайлов (если есть фото или видео)
+    formfield_overrides = {
+        models.FileField: {"widget": FileInput(attrs={"accept": "image/*,video/*"})},
+    }
+
     def media_display(self, obj):
-        if obj.video:
-            return f"Видео: {obj.video.name}"  # Если есть видео, показываем его
-        elif obj.image:
-            return f"Фото: {obj.image.name}"  # Если есть только фото, показываем его
-        return "Нет медиа"  # Если нет медиа, показываем, что медиа отсутствует
-    
-    media_display.short_description = 'Медиафайл'
+        """Предпросмотр медиа в списке рассылок"""
+        if obj.file:
+            if obj.media_type == "image":
+                return format_html('<img src="{}" style="max-height: 100px; max-width: 150px;" />', obj.file.url)
+            elif obj.media_type == "video":
+                return format_html('<video width="150" height="100" controls><source src="{}" type="video/mp4"></video>', obj.file.url)
+        return "Нет медиа"
 
-    # Описание полей, чтобы администратор понимал, что если оба медиа (фото и видео), то отправляется только видео
-    fieldsets = (
-        (None, {
-            'fields': ('text', 'send_time', 'is_sent', 'image', 'video')
-        }),
-    )
+    media_display.short_description = "Медиа"
 
-    # Метод для отображения подсказки в админке
-    def get_fieldsets(self, request, obj=None):
-        fieldsets = super().get_fieldsets(request, obj)
-        if obj and (obj.image and obj.video):
-            fieldsets[0][1]['description'] = 'Если присутствуют фото и видео, будет отправлено только видео.'
-        return fieldsets
+    def media_preview(self, obj):
+        """Предпросмотр медиа в форме редактирования"""
+        if obj.file:
+            if obj.media_type == "image":
+                return format_html('<img src="{}" style="max-width: 300px; max-height: 300px; margin-top: 10px;" />', obj.file.url)
+            elif obj.media_type == "video":
+                return format_html('<video width="300" height="200" controls style="margin-top: 10px;"><source src="{}" type="video/mp4"></video>', obj.file.url)
+        return "Нет медиафайла"
 
-    
-    
+    media_preview.short_description = "Предпросмотр медиа"

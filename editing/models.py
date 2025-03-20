@@ -21,8 +21,14 @@ class StartCommandResponse(models.Model):
 
 class BroadcastMessage(models.Model):
     text = models.TextField("Текст сообщения", blank=True, null=True)
-    image = models.ImageField("Изображение", upload_to="media/", blank=True, null=True)
-    video = models.FileField("Видео", upload_to="media/", blank=True, null=True)
+    file = models.FileField("Медиафайл", upload_to="media/", blank=True, null=True)
+    media_type = models.CharField(
+        "Тип медиафайла",
+        max_length=10,
+        choices=[("image", "Изображение"), ("video", "Видео")],
+        blank=True,
+        null=True,
+    )
     send_time = models.DateTimeField("Время отправки", default=now)
     is_sent = models.BooleanField("Отправлено", default=False)
 

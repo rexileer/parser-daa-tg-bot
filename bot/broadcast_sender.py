@@ -12,15 +12,18 @@ load_dotenv()
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 # Функция для отправки сообщений
-async def send_message(bot, user_id, text=None, image=None, video=None):
+async def send_message(bot, user_id, text=None, file=None, media_type=None):
     """Отправка сообщений пользователям"""
     try:
-        if video:
-            video_input = FSInputFile(video.path)
-            await bot.send_video(user_id, video_input, caption=text)
-        elif image:
-            image_input = FSInputFile(image.path)
-            await bot.send_photo(user_id, image_input, caption=text)
+        if file:
+            if media_type == "image":
+                image_input = FSInputFile(file.path)
+                await bot.send_photo(user_id, image_input, caption=text)
+            elif media_type == "video":
+                video_input = FSInputFile(file.path)
+                await bot.send_video(user_id, video_input, caption=text)
+            else:
+                logging.warning(f"Неизвестный тип медиафайла {media_type}")
         elif text:
             await bot.send_message(user_id, text)
         else:
@@ -32,8 +35,6 @@ async def send_message(bot, user_id, text=None, image=None, video=None):
 
 
 # Функция рассылки сообщений
-
-
 async def broadcast(bot):
     """Функция рассылки сообщений"""
     logging.info("Начало проверки рассылок...")
@@ -49,7 +50,7 @@ async def broadcast(bot):
         for message in messages:
             users = await get_users()
             for user in users:
-                await send_message(bot, user.user_id, message.text, message.image, message.video)
+                await send_message(bot, user.user_id, message.text, message.file, message.media_type)
 
             # Помечаем сообщения как отправленные
             message.is_sent = True
