@@ -16,6 +16,26 @@ router = Router()
 
 @router.callback_query(F.data.startswith("filter_"))
 async def filter_handler(callback: CallbackQuery, state: FSMContext):
+    # Проверяем, если callback_data содержит пагинацию
+    if callback.data.startswith("filter_page_"):
+        # Разбираем callback_data: например, page_Марка_2
+        parts = callback.data.split("_")
+        filter_name_rus = parts[2]
+        filter_name = FILTER_MAPPING_LANGUAGE.get(filter_name_rus)  # Перевод в поле модели
+        filter_description = FILTER_MAPPING_DESCRIPTION.get(filter_name_rus)
+        page = int(parts[3])
+        current_values = await get_user_filter_values(callback.from_user.id, filter_name)
+
+        # Обновляем клавиатуру с учетом выбранной страницы
+        keyboard = filter_keyboard(filter_name_rus, current_values, page)
+
+        # Обновляем сообщение с новой клавиатурой
+        await callback.message.edit_text(
+            f"Выберите {filter_name_rus}\n"
+            f"Формат: «{filter_description}»",
+            reply_markup=keyboard if keyboard else filter_keyboard_back_button(),
+        )
+        return
     filter_name_rus = callback.data.replace("filter_", "")  # Русское название
     filter_name = FILTER_MAPPING_LANGUAGE.get(filter_name_rus)  # Перевод в поле модели
     filter_description = FILTER_MAPPING_DESCRIPTION.get(filter_name_rus)
@@ -25,7 +45,9 @@ async def filter_handler(callback: CallbackQuery, state: FSMContext):
         return
     
     current_values = await get_user_filter_values(callback.from_user.id, filter_name)
-    keyboard = filter_keyboard(filter_name_rus, current_values)
+    
+    
+    keyboard = filter_keyboard(filter_name_rus, current_values, page=1)
     
     sent_message = await callback.message.edit_text(
         f"Введите значение для {filter_name_rus}\n"
@@ -63,14 +85,14 @@ async def save_filter_value(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith("toggle_filter_"))
 async def save_filter_value_inline(callback: CallbackQuery):
     try:
-        filter_name_rus, value = callback.data.split("_")[2:]
+        filter_name_rus, value, page = callback.data.split("_")[2:]
         user_id = callback.from_user.id
         filter_name_eng = FILTER_MAPPING_LANGUAGE.get(filter_name_rus)  # Достаём сохранённый фильтр
         
         await update_user_filter(user_id, filter_name_eng, value)  # Сохраняем в БД
         
         current_values = await get_user_filter_values(user_id, filter_name_eng)
-        keyboard = filter_keyboard(filter_name_rus, current_values)
+        keyboard = filter_keyboard(filter_name_rus, current_values, page=int(page))
         
         await callback.message.edit_reply_markup(reply_markup=keyboard)  # Обновляем клавиатуру
         
