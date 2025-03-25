@@ -25,6 +25,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     command: python manage.py runserver 0.0.0.0:8000
+    restart: always
 
   db:
     image: postgres:latest
@@ -41,6 +42,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       retries: 5
+    restart: always
 
   redis:
     image: redis:latest
@@ -80,6 +82,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     command: python bot/tg_bot.py
+    restart: always
 
   chrome_driver:
     image: selenium/standalone-chrome:latest
