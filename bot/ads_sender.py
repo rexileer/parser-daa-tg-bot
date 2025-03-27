@@ -12,12 +12,14 @@ import asyncio
 import json
 import redis.asyncio as redis
 from aiogram import Bot
+from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 from asgiref.sync import sync_to_async
 from django.db import close_old_connections
 
 from users.models import UserFilters, User  # Импортируй свою модель
 from utils import check_filters  # Функция для проверки фильтров
 from config import REDIS_HOST, REDIS_PORT
+from services.remove_user_service import remove_user_from_db
 
 import logging
 
@@ -173,6 +175,13 @@ async def send_ad_to_user(user_id, ad):
 
     try:
         await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text_msg, parse_mode="MarkdownV2")
+        asyncio.sleep(0.5)
+    except TelegramForbiddenError:
+        logging.info(f"Пользователь {user_id} заблокировал бота. Удаляем его из базы.")
+        await remove_user_from_db(user_id)  # Удалить или пометить пользователя
+    except TelegramRetryAfter as e:
+        logging.error(f"⏳ Превышен лимит запросов к Telegram API: ожидание {e.retry_after} сек.")
+        await asyncio.sleep(e.retry_after)
     except Exception as e:
         logging.error(f"❌ Ошибка отправки пользователю {user_id}: {e}, объявление: {ad}")
         await bot.send_message(chat_id=user_id, text=text_msg, parse_mode="MarkdownV2")
