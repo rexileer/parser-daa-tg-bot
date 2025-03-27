@@ -52,7 +52,7 @@ class DromParser:
     
     def _init_logger(self):
         logging.basicConfig(level=logging.INFO)
-        return logging.getLogger(__name__)
+        return logging.getLogger("drom_parser")
     
     def _extract_drom_id(self, url: str) -> str | None:
         match = re.search(r'/(\d+).html', url)  # Ищем число перед ?
@@ -109,7 +109,12 @@ class DromParser:
                 if not self.redis_client.exists(f"{ad_id}"):
                     title = ad.find_element(By.CSS_SELECTOR, "h3").text
                     price = ad.find_element(By.CSS_SELECTOR, "span[class='css-46itwz e162wx9x0']").text
-                    new_ads.append({'title': title, 'price': price, 'link': link})
+                    try:
+                        ad_service = ad.find_element(By.CSS_SELECTOR, "div[class='css-5v14mu e3f4v4l1']")
+                        ad_type = "продвижение"
+                    except:
+                        ad_type = "обычное"
+                    new_ads.append({'title': title, 'price': price, 'link': link, 'ad_type': ad_type})
             except Exception as ex:
                 self.logger.error(f"Error processing ad: {ex}")
                 continue
@@ -178,10 +183,6 @@ class DromParser:
         def __normalize_str(value):
             return str(value).strip().lower() if value else "unknown"
         
-        
-        seller_mapping = {"dealer": "автодилер", "private": "частное лицо"}
-        ad_type_mapping = {"new": "новый", "used": "второй рынок"}
-        
         return {
             "platform": __normalize_str(raw_data.get("platform")),
             "link": raw_data.get("link", ""),
@@ -201,8 +202,8 @@ class DromParser:
             "owners": __normalize_int(raw_data.get("owners"), default="unknown"),
             "body_type": __normalize_str(raw_data.get("body_type")),
             "condition": __normalize_str(raw_data.get("condition")),
-            "ad_type": ad_type_mapping.get(__normalize_str(raw_data.get("ad_type")), "unknown"),
-            "seller": seller_mapping.get(__normalize_str(raw_data.get("seller")), "unknown")
+            "ad_type": __normalize_str(raw_data.get("ad_type")),
+            "seller": __normalize_str(raw_data.get("seller")),
         }
 
     def _parse_details(self, ad):
@@ -219,6 +220,12 @@ class DromParser:
             title = ad.get('title', '')  # Получаем заголовок, если его нет — пустая строка
             title_parts = title.rsplit(", ", 1)  # Разделяем строку по последней запятой
             characteristics = self._parse_characteristics()
+            # Пробуем достать продавца
+            try:
+                ad_service = self.driver.find_element(By.CSS_SELECTOR, "div[class='ylnx3y3']")
+                seller = "автодилер"
+            except:
+                seller = "частное лицо"
             details = {
                 "platform" : "drom",
                 "link": ad['link'],
@@ -244,8 +251,8 @@ class DromParser:
                 
                 # Дополнительные поля
                 "condition": None,
-                "ad_type": None,
-                "seller": None,
+                "ad_type": ad['ad_type'],
+                "seller": seller,
             }
             ad_id = self._extract_drom_id(ad['link'])
             normalized_details = self._normalize_car_data(details)

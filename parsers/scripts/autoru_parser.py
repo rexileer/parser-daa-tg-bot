@@ -49,7 +49,7 @@ class AutoruParser:
     
     def _init_logger(self):
         logging.basicConfig(level=logging.INFO)
-        return logging.getLogger(__name__)
+        return logging.getLogger("autoru_parser")
     
     def _extract_autoru_id(self, url: str) -> str | None:
         match = re.search(r'/(\d+)-\w+/', url)
@@ -60,22 +60,22 @@ class AutoruParser:
     def _human_delay(self, min_time=2, max_time=5):
         time.sleep(random.uniform(min_time, max_time))
         
-    def _human_mouse(self, min_time=2, max_time=5):
-        actions = ActionChains(self.driver)
-        try:
-            submit_button = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "li[data-id='history']"))
-            )
-        except Exception as e:
-            self.logger.warning(f"Элемент для движения мыши не найден: {e}")
-            return
-        for _ in range(random.randint(min_time, max_time)):
-            offset_x = random.randint(10, 50)
-            offset_y = random.randint(10, 50)
-            actions.move_to_element_with_offset(submit_button, offset_x, offset_y).perform()
-            self.driver.execute_script("window.scrollBy(0, arguments[0]);", random.randint(100, 300))
-            self.logger.info("Scrolling")
-            self._human_delay(0.2, 0.7)
+    # def _human_mouse(self, min_time=2, max_time=5):
+    #     actions = ActionChains(self.driver)
+    #     try:
+    #         submit_button = WebDriverWait(self.driver, 10).until(
+    #             EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='SubscriptionSaveButton__buttonText']"))
+    #         )
+    #     except Exception as e:
+    #         self.logger.warning(f"Элемент для движения мыши не найден: {e}")
+    #         return
+    #     for _ in range(random.randint(min_time, max_time)):
+    #         offset_x = random.randint(10, 50)
+    #         offset_y = random.randint(10, 50)
+    #         actions.move_to_element_with_offset(submit_button, offset_x, offset_y).perform()
+    #         self.driver.execute_script("window.scrollBy(0, arguments[0]);", random.randint(100, 300))
+    #         self.logger.info("Scrolling")
+    #         self._human_delay(0.2, 0.7)
     
     def _parse_ads(self):
         ads = self.driver.find_elements(By.CSS_SELECTOR, "div[data-seo='listing-item']")
@@ -84,14 +84,19 @@ class AutoruParser:
             try:
                 link = ad.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
                 ad_id = self._extract_autoru_id(link)
+                try:
+                    ad_service = ad.find_element(By.CSS_SELECTOR, "div[class='ListingItemServices ListingItem__services']")
+                    ad_type = "продвижение"
+                except:
+                    ad_type = "обычное"
                 self.logger.info(f"Processing ad {ad_id}")
                 if not self.redis_client.exists(f"{ad_id}"):
-                    new_ads.append({'link': link})
+                    new_ads.append({'link': link, 'ad_type': ad_type})
             except Exception as ex:
                 self.logger.error(f"Error processing ad: {ex}")
                 continue
         self.logger.info(f"Found {len(new_ads)} new ads")
-        self._human_mouse(2, 5)
+        # self._human_mouse(2, 5)
         return new_ads
     
     def _parse_characteristics(self):
@@ -154,9 +159,8 @@ class AutoruParser:
         def __normalize_str(value):
             return str(value).strip().lower() if value else "unknown"
         
-        seller_mapping = {"dealer": "автодилер", "private": "частное лицо"}
-        ad_type_mapping = {"new": "новый", "used": "второй рынок"}
-        
+
+
         return {
             "platform": __normalize_str(raw_data.get("platform")),
             "link": raw_data.get("link", ""),
@@ -176,8 +180,8 @@ class AutoruParser:
             "owners": __normalize_int(raw_data.get("owners"), default="unknown"),
             "body_type": __normalize_str(raw_data.get("body_type")),
             "condition": "не битый" if __normalize_str(raw_data.get("condition")) == "не требует ремонта" else __normalize_str(raw_data.get("condition")),
-            "ad_type": ad_type_mapping.get(__normalize_str(raw_data.get("ad_type")), "unknown"),
-            "seller": seller_mapping.get(__normalize_str(raw_data.get("seller")), "unknown")
+            "ad_type": __normalize_str(raw_data.get("ad_type")),
+            "seller": __normalize_str(raw_data.get("seller")),
         }
     
     def _parse_details(self, ad):
@@ -187,7 +191,7 @@ class AutoruParser:
         except Exception as e:
             self.logger.error(f"Ошибка ожидания загрузки изображений: {e}")
             return None
-        self._human_mouse(1, 2)
+        # self._human_mouse(1, 2)
         self._human_delay(1, 3)
         
         try:
@@ -197,19 +201,25 @@ class AutoruParser:
                 return None
             # Если тип объявления "new/group", используем новые характеристики
             characteristics = self._parse_characteristics_new() if extracted_info[0] == "new/group" else self._parse_characteristics()
+            # Парсинг картинки
+            try:
+                image = self.driver.find_element(By.CSS_SELECTOR, "img[class='ImageGalleryDesktop__image']").get_attribute("src")
+            except:
+                image = ""
+            # Парсинг заголовка
             try:
                 title = self.driver.find_element(By.CSS_SELECTOR, "h1").text
             except Exception as e:
                 self.logger.error(f"Не удалось получить заголовок: {e}")
                 title = ""
             title_parts = title.rsplit(", ", 1)
-            ad_type = self.driver.find_element(By.CSS_SELECTOR, "class='ListingItemServices ListingItem__services'").text
+            # Сборка деталей
             details = {
                 "platform": "autoru",
                 "link": ad['link'],
                 "name": title_parts[0] if len(title_parts) > 1 else title,
                 "year": title_parts[1] if len(title_parts) > 1 else None,
-                "image": self.driver.find_element(By.CSS_SELECTOR, "img[class='ImageGalleryDesktop__image']").get_attribute("src"),
+                "image": image,
                 "price": self.driver.find_element(By.CSS_SELECTOR, "span[class='OfferPriceCaption__price']").text,
                 "city": self.driver.find_element(By.CSS_SELECTOR, "div[class^='CardSellerNamePlace2__address'] span[class^='MetroListPlace__regionName']").text,
                 "brand": extracted_info[1] if extracted_info else None,
@@ -223,8 +233,8 @@ class AutoruParser:
                 "owners": characteristics.get('Владельцы'),
                 "body_type": characteristics.get('Кузов'),
                 "condition": characteristics.get('Состояние'),
-                "ad_type": ad_type,
-                "seller": "компания" if extracted_info and extracted_info[0] == "new/group" else "частное лицо",
+                "ad_type": ad['ad_type'],
+                "seller": "автодилер" if extracted_info and extracted_info[0] == "new/group" else "частное лицо",
             }
             ad_id = self._extract_autoru_id(ad['link'])
             normalized_details = self._normalize_car_data(details)
@@ -254,7 +264,7 @@ class AutoruParser:
                 self.logger.info("Opened auto.ru")
                 self._cookies_accept()
                 self._human_delay()
-                self._human_mouse(1, 2)
+                # self._human_mouse(1, 2)
                 try:
                     WebDriverWait(self.driver, 60).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='ListingItem']"))

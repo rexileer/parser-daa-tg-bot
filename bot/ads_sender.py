@@ -109,6 +109,8 @@ def escape_md_v2(text: str) -> str:
     special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
     for ch in special_chars:
         text = text.replace(ch, f"\\{ch}")
+    if text == "unknown":
+        text = ""
     return text
 
 def bold_md(text: str) -> str:
