@@ -1,5 +1,6 @@
 from users.models import UserFilters
 from django.contrib.postgres.fields import ArrayField
+from django.db import models
 
 async def get_user_filters_explain() -> str:
     """ Получает фильтры пользователя из БД и форматирует их для вывода """
@@ -95,3 +96,21 @@ async def update_user_filter(user_id: int, field: str, value: str):
 async def get_user_filter_values(user_id: int, field: str):
     filters = await get_user_filters_from_db(user_id)
     return getattr(filters, field) or []
+
+async def clear_user_filter(user_id: int, field: str):
+    filters, _ = await UserFilters.objects.aget_or_create(user_id=user_id)
+    
+    # Получаем информацию о поле из модели
+    field_type = UserFilters._meta.get_field(field)
+    
+    # Очищаем в зависимости от типа поля
+    if isinstance(field_type, ArrayField):
+        setattr(filters, field, [])  # Для массивов — пустой список
+    elif isinstance(field_type, (models.CharField, models.TextField)):
+        setattr(filters, field, "")  # Для строк — пустая строка
+    elif isinstance(field_type, (models.IntegerField, models.BigIntegerField, models.FloatField)):
+        setattr(filters, field, None)  # Для чисел — None (или 0, если нужно)
+    else:
+        setattr(filters, field, None)  # Для остальных типов — None
+    
+    await filters.asave()

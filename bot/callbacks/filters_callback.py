@@ -3,9 +3,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import State, StatesGroup
 
-from services.filters_service import update_user_filter, get_user_filters, get_user_filter_values
+from services.filters_service import update_user_filter, get_user_filters, get_user_filter_values, clear_user_filter, get_user_filters_explain
 from keyboards.inline.check_filters_kb import check_filters_keyboard
 from keyboards.inline.filters_mapping_kb import filter_keyboard, filter_keyboard_back_button
+from keyboards.inline.filters_kb import filters_keyboard
 from .filter_mapping import FILTER_MAPPING_LANGUAGE, FILTER_MAPPING_DESCRIPTION
 
 
@@ -33,7 +34,7 @@ async def filter_handler(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text(
             f"Выберите {filter_name_rus}\n"
             f"Формат: «{filter_description}»",
-            reply_markup=keyboard if keyboard else filter_keyboard_back_button(),
+            reply_markup=keyboard if keyboard else filter_keyboard_back_button(filter_name=filter_name_rus),
         )
         return
     filter_name_rus = callback.data.replace("filter_", "")  # Русское название
@@ -52,7 +53,7 @@ async def filter_handler(callback: CallbackQuery, state: FSMContext):
     sent_message = await callback.message.edit_text(
         f"Введите значение для {filter_name_rus}\n"
         f"Формат: «{filter_description}»",
-        reply_markup=keyboard if keyboard else filter_keyboard_back_button(),
+        reply_markup=keyboard if keyboard else filter_keyboard_back_button(filter_name=filter_name_rus),
     )
 
     if not keyboard:
@@ -78,7 +79,7 @@ async def save_filter_value(message: Message, state: FSMContext):
         return
     
     await update_user_filter(user_id, filter_name, filter_value)  # Сохраняем в БД
-    await message.answer(f"✅ Фильтр {filter_name_rus} обновлён: {filter_value}", reply_markup=filter_keyboard_back_button())
+    await message.answer(f"✅ Фильтр {filter_name_rus} обновлён: {filter_value}", reply_markup=filter_keyboard_back_button(filter_name=filter_name_rus))
     
     await state.clear()  # Очищаем состояние
 
@@ -105,4 +106,14 @@ async def check_filters(callback: CallbackQuery):
     filters_text = await get_user_filters(user_id)
     keyboard = check_filters_keyboard()
     await callback.message.edit_text(filters_text, reply_markup=keyboard, parse_mode="Markdown")
+
+@router.callback_query(F.data.startswith("clear_filter_"))
+async def clear_filter(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    filter_name_rus = callback.data.split("_")[2]
+    filter_name = FILTER_MAPPING_LANGUAGE.get(filter_name_rus)  # Перевод в поле модели
+    await clear_user_filter(user_id, filter_name)
+    filters_text = await get_user_filters_explain()
     
+    keyboard = filters_keyboard()
+    await callback.message.edit_text(filters_text, reply_markup=keyboard, parse_mode="Markdown")

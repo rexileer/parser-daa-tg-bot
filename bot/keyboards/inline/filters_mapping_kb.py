@@ -141,6 +141,10 @@ def filter_keyboard(filter_name: str, selected_values=None, page=1) -> InlineKey
         if page_buttons:
             inline_keyboard.append(page_buttons)
 
+        inline_keyboard.append([InlineKeyboardButton(
+            text="Очистить фильтр",
+            callback_data=f"clear_filter_{filter_name}",
+        )])
         # Кнопка "Назад" для завершения выбора
         inline_keyboard.append([InlineKeyboardButton(
             text="⬅️ Вернуться к фильтрам",
@@ -149,8 +153,14 @@ def filter_keyboard(filter_name: str, selected_values=None, page=1) -> InlineKey
         return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
     return None
 
-def filter_keyboard_back_button() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-        text="📜 Назад",
-        callback_data="filters_edit",
-    )]])
+def filter_keyboard_back_button(filter_name: str) -> InlineKeyboardMarkup:
+    inline_keyboard = []
+    inline_keyboard.append([InlineKeyboardButton(
+            text="Очистить фильтр",
+            callback_data=f"clear_filter_{filter_name}",
+        )])
+    inline_keyboard.append([InlineKeyboardButton(
+            text="⬅️ Вернуться к фильтрам",
+            callback_data="filters_edit",
+    )])
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
