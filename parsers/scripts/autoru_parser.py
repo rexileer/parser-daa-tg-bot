@@ -203,6 +203,7 @@ class AutoruParser:
                 self.logger.error(f"Не удалось получить заголовок: {e}")
                 title = ""
             title_parts = title.rsplit(", ", 1)
+            ad_type = self.driver.find_element(By.CSS_SELECTOR, "class='ListingItemServices ListingItem__services'").text
             details = {
                 "platform": "autoru",
                 "link": ad['link'],
@@ -222,7 +223,7 @@ class AutoruParser:
                 "owners": characteristics.get('Владельцы'),
                 "body_type": characteristics.get('Кузов'),
                 "condition": characteristics.get('Состояние'),
-                "ad_type": "новый" if extracted_info and extracted_info[0] == "new/group" else "б/у",
+                "ad_type": ad_type,
                 "seller": "компания" if extracted_info and extracted_info[0] == "new/group" else "частное лицо",
             }
             ad_id = self._extract_autoru_id(ad['link'])
