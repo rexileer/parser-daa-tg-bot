@@ -164,25 +164,25 @@ class AvitoParser:
                 return default
         
         def __normalize_str(value):
-            return str(value).strip().lower() if value else "Неизвестно"
+            return str(value).strip().lower() if value else "неизвестно"
         
         return {
             "platform": __normalize_str(raw_data.get("platform")),
             "link": raw_data.get("link", ""),
             "name": __normalize_str(raw_data.get("name")),
-            "year": __normalize_int(raw_data.get("year"), default="Неизвестно"),
+            "year": __normalize_int(raw_data.get("year"), default="неизвестно"),
             "image": raw_data.get("image", ""),
-            "price": __normalize_int(raw_data.get("price"), default="Неизвестно"),
+            "price": __normalize_int(raw_data.get("price"), default="неизвестно"),
             "city": __normalize_str(raw_data.get("city")),
             "brand": __normalize_str(raw_data.get("brand")),
             "model": __normalize_str(raw_data.get("model")),
-            "mileage": __normalize_int(raw_data.get("mileage"), default="Неизвестно"),
+            "mileage": __normalize_int(raw_data.get("mileage"), default="неизвестно"),
             "engine": __normalize_str(raw_data.get("engine")),
             "color": __normalize_str(raw_data.get("color")),
             "gearbox": __normalize_str(raw_data.get("gearbox")),
             "drive":__normalize_str(raw_data.get("drive")),
             "steering": __normalize_str(raw_data.get("steering")),
-            "owners": __normalize_int(raw_data.get("owners"), default="Неизвестно"),
+            "owners": __normalize_int(raw_data.get("owners"), default="неизвестно"),
             "body_type": __normalize_str(raw_data.get("body_type")),
             "condition": __normalize_str(raw_data.get("condition")),
             "ad_type": __normalize_str(raw_data.get("ad_type")),
@@ -202,11 +202,11 @@ class AvitoParser:
             # Парсинг деталей
             try:
                 WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-marker^='seller-info/label']"))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-marker='seller-info/label']"))
                 )
                 seller = self.driver.find_element(By.CSS_SELECTOR, "div[data-marker^='seller-info/label']").text
             except Exception as e:
-                seller = "unknown"
+                seller = "неизвестно"
                 self.logger.info(f"Error parsing seller: {e}")
             image = self.driver.find_element(By.CSS_SELECTOR, "div[data-marker='image-frame/image-wrapper'] img").get_attribute("src")
             details = {
@@ -234,7 +234,7 @@ class AvitoParser:
                 "condition": characteristics.get('Состояние'),
                 
                 # Тип объявления и продавец
-                "ad_type": "Не указывается на авито",
+                "ad_type": "неизвестно",
                 "seller": seller,
             }
             ad_id = self._extract_avito_id(ad['link'])
