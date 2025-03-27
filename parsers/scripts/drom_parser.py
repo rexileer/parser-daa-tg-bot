@@ -215,7 +215,10 @@ class DromParser:
         
         try:
             # Парсинг деталей
-            image = self.driver.find_element(By.CSS_SELECTOR, "img[class='css-qy78xy evrha4s0']").get_attribute("src")
+            try:
+                image = self.driver.find_element(By.CSS_SELECTOR, "img[class='css-qy78xy evrha4s0']").get_attribute("src")
+            except:
+                image = ""
             extracted_info = self._extract_info(ad['link'])
             title = ad.get('title', '')  # Получаем заголовок, если его нет — пустая строка
             title_parts = title.rsplit(", ", 1)  # Разделяем строку по последней запятой
