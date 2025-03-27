@@ -7,20 +7,20 @@ def check_filters(ad, filters):
         Проверяет, соответствует ли строка значения объявления хотя бы одному из значений фильтра.
         
         Если filter_value — список, возвращает True, если хотя бы один его элемент:
-        - равен "unknown", либо
-        - ad_value равен "unknown", либо
+        - равен "Неизвестно", либо
+        - ad_value равен "Неизвестно", либо
         - содержится в ad_value (без учёта регистра).
         
         Если filter_value — не список, работает по тому же принципу.
         """
         if isinstance(filter_value, list):
-            return any(val == "unknown" or ad_value == "unknown" or (val.lower() in ad_value.lower()) for val in filter_value)
+            return any(val == "неизвестно" or ad_value == "неизвестно" or (val.lower() in ad_value.lower()) for val in filter_value)
         else:
-            return filter_value == "unknown" or ad_value == "unknown" or (filter_value.lower() in ad_value.lower())
+            return filter_value == "неизвестно" or ad_value == "неизвестно" or (filter_value.lower() in ad_value.lower())
 
     # Для числовых фильтров проверяем, попадает ли значение в диапазон
     def check_numeric_filter(ad_value, filter_value):
-        if filter_value == "unknown" or ad_value == "unknown":
+        if filter_value == "неизвестно" or ad_value == "неизвестно":
             return True
         try:
             min_value, max_value = map(int, filter_value.split("-"))
