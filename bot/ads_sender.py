@@ -176,8 +176,10 @@ async def send_ad_to_user(user_id, ad):
     )
 
     try:
+        if ad["image"] is None or ad["image"] == "":
+            await bot.send_message(chat_id=user_id, text=text_msg, parse_mode="MarkdownV2")
+            return
         await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text_msg, parse_mode="MarkdownV2")
-        asyncio.sleep(0.5)
     except TelegramForbiddenError:
         logging.info(f"Пользователь {user_id} заблокировал бота. Удаляем его из базы.")
         await remove_user_from_db(user_id)  # Удалить или пометить пользователя
