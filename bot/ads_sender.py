@@ -69,7 +69,12 @@ async def send_ads_by_filters(redis_client: redis.Redis):
         if ad_id in checked_ads:
             continue  # Пропускаем уже обработанное объявление
 
-        ad = json.loads(ad_data)
+        try:
+            ad = json.loads(ad_data)
+        except json.JSONDecodeError as e:
+            logging.error(f"Ошибка декодирования JSON для объявления {ad_id}: {e}, данные: {ad_data!r}")
+            continue  # Пропускаем это объявление и переходим к следующему
+
         for user in users:
             if user.user_id in [u.user_id for u in users_monitoring_enabled]:
                 filters = {
@@ -150,6 +155,8 @@ async def send_ad_to_user(user_id, ad):
     seller = escape_md_v2(ad.get('seller', ''))
     ad_type = escape_md_v2(ad.get('ad_type', ''))
     platform = escape_md_v2(ad.get('platform', ''))
+    
+    image = escape_md_v2(ad.get('image', ''))
 
     # Формируем текстовое сообщение с применением MarkdownV2
     text_msg = (
@@ -179,7 +186,7 @@ async def send_ad_to_user(user_id, ad):
         if ad["image"] is None or ad["image"] == "":
             await bot.send_message(chat_id=user_id, text=text_msg, parse_mode="MarkdownV2")
             return
-        await bot.send_photo(chat_id=user_id, photo=ad["image"], caption=text_msg, parse_mode="MarkdownV2")
+        await bot.send_photo(chat_id=user_id, photo=image, caption=text_msg, parse_mode="MarkdownV2")
     except TelegramForbiddenError:
         logging.info(f"Пользователь {user_id} заблокировал бота. Удаляем его из базы.")
         await remove_user_from_db(user_id)  # Удалить или пометить пользователя
