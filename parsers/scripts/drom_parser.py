@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
 from fake_useragent import UserAgent, FakeUserAgentError
 from config import REDIS_HOST, REDIS_PORT
 
@@ -280,15 +281,36 @@ class DromParser:
                 self._human_mouse(1, 2)
                 self._human_delay()
                 
-                # Ожидание появления объявлений
                 try:
-                    WebDriverWait(self.driver, 20).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-ftid='bulls-list_bull']"))
+                    # Сначала ждём загрузки страницы
+                    WebDriverWait(self.driver, 10).until(
+                        lambda d: d.execute_script("return document.readyState") == "complete"
                     )
-                    self.logger.info("Объявления загружены, начинаем парсинг")
+                    
+                    # Затем ждём минимум 3 объявления
+                    WebDriverWait(self.driver, 30).until(
+                        lambda d: len(d.find_elements(
+                            By.CSS_SELECTOR, 
+                            "div[data-ftid='bulls-list_bull'], " +  # Основной селектор
+                            "div.css-1f68fiz.ea1vuk60"             # Альтернативный селектор
+                        )) >= 3
+                    )
+                    
+                    self.logger.info("Успешно загружены объявления")
+                    
+                except TimeoutException:
+                    self.logger.error("Объявления не загрузились. Проверьте:")
+                    self.logger.error("1. Интернет-соединение")
+                    self.logger.error("2. Наличие капчи")
+                    self.logger.error("3. Актуальность селекторов")
+                    
+                    # # Сделайте скриншот для диагностики
+                    # self.driver.save_screenshot("error.png")
+                    return False
+                    
                 except Exception as e:
-                    self.logger.error(f"Ошибка ожидания объявлений: {e}")
-                    return  # Можно выйти из метода, если объявления так и не загрузились
+                    self.logger.error(f"Неожиданная ошибка: {str(e)}")
+                    return False
                 
                 new_ads = self._parse_ads()
                 
