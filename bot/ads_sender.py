@@ -156,7 +156,7 @@ async def send_ad_to_user(user_id, ad):
     ad_type = escape_md_v2(ad.get('ad_type', ''))
     platform = escape_md_v2(ad.get('platform', ''))
     
-    image = escape_md_v2(ad.get('image', ''))
+    image = ad.get('image', '')
 
     # Формируем текстовое сообщение с применением MarkdownV2
     text_msg = (
