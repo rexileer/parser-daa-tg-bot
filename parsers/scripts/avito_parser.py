@@ -96,7 +96,7 @@ class AvitoParser:
                 ad_id = self._extract_avito_id(link)
                 self.logger.info(f"Processing ad {ad_id}")
                 if not self.redis_client.exists(f"{ad_id}"):
-                    title = ad.find_element(By.CSS_SELECTOR, "h3").text
+                    title = ad.find_element(By.CSS_SELECTOR, "a[data-marker='item-title']").text
                     price = ad.find_element(By.CSS_SELECTOR, "p[data-marker='item-price'] span").text
                     city = ad.find_element(By.CSS_SELECTOR, "div[class^='geo-root-NrkbV'] p span").text
                     new_ads.append({'title': title, 'price': price, 'link': link, 'city': city})
