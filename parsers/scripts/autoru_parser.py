@@ -4,12 +4,15 @@ import random
 import re
 import logging
 import redis
+import os
+import traceback
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from config import REDIS_HOST, REDIS_PORT
+from django.utils import timezone
 
 class AutoruParser:
     def __init__(self, filters=None, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0):
@@ -50,6 +53,17 @@ class AutoruParser:
     def _init_logger(self):
         logging.basicConfig(level=logging.INFO)
         return logging.getLogger("autoru_parser")
+    
+    def _capture_screenshot(self, context: str = "error"):
+        try:
+            timestamp = timezone.datetime.now().strftime("%Y%m%d_%H%M%S")
+            folder = os.path.join("screenshots/autoru", context)
+            os.makedirs(folder, exist_ok=True)
+            path = os.path.join(folder, f"{context}_{timestamp}.png")
+            self.driver.save_screenshot(path)
+            self.logger.info(f"Screenshot saved to {path}")
+        except Exception as e:
+            self.logger.error(f"Failed to capture screenshot: {e}")
     
     def _extract_autoru_id(self, url: str) -> str | None:
         match = re.search(r'/(\d+)-\w+/', url)
@@ -93,7 +107,9 @@ class AutoruParser:
                 if not self.redis_client.exists(f"{ad_id}"):
                     new_ads.append({'link': link, 'ad_type': ad_type})
             except Exception as ex:
-                self.logger.error(f"Error processing ad: {ex}")
+                context = f"parse_ads_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                self.logger.error(f"Error processing ad: {traceback.format_exc()}")
+                self._capture_screenshot(context)
                 continue
         self.logger.info(f"Found {len(new_ads)} new ads")
         # self._human_mouse(2, 5)
@@ -209,8 +225,10 @@ class AutoruParser:
             # Парсинг заголовка
             try:
                 title = self.driver.find_element(By.CSS_SELECTOR, "h1").text
-            except Exception as e:
-                self.logger.error(f"Не удалось получить заголовок: {e}")
+            except Exception as ex:
+                context = f"parse_title_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                self.logger.error(f"Не удалось получить заголовок: {traceback.format_exc()}")
+                self._capture_screenshot(context)
                 title = ""
             title_parts = title.rsplit(", ", 1)
             # Сборка деталей
@@ -242,7 +260,9 @@ class AutoruParser:
             self.logger.info(f"Saved ad {ad_id} to Redis")
             return normalized_details
         except Exception as ex:
-            self.logger.error(f"Error parsing ad details: {ex}")
+            context = f"parse_ad_details_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            self.logger.error(f"Error parsing ad details: {traceback.format_exc()}")
+            self._capture_screenshot(context)
         return None
     
     def _cookies_accept(self):
@@ -270,8 +290,10 @@ class AutoruParser:
                         EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='ListingItem']"))
                     )
                     self.logger.info("Объявления загружены, начинаем парсинг")
-                except Exception as e:
-                    self.logger.error(f"Ошибка ожидания объявлений: {e}")
+                except Exception as ex:
+                    context = f"load_ads_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    self.logger.error(f"Error loading ads: {traceback.format_exc()}")
+                    self._capture_screenshot(context)
                     self._human_delay(5, 10)
                     continue
                 new_ads = self._parse_ads()
@@ -285,14 +307,18 @@ class AutoruParser:
                             if details:
                                 self.logger.info(f"New ad: {details}")
                         except Exception as ex:
-                            self.logger.error(f"Error processing ad: {ex}")
+                            context = f"process_ads_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            self.logger.error(f"Error processing ad: {traceback.format_exc()}")
+                            self._capture_screenshot(context)
                             continue
                 else:
                     self.logger.info("No new ads found.")
                     self._human_delay(5, 10)
                 self._human_delay(5, 10)
             except Exception as ex:
-                self.logger.error(f"Unhandled error: {ex} \n Возможна блокировка IP или другая ошибка. Перезапуск через 5 минут.")
+                context = f"main_loop_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                self.logger.error(f"Ошибка в основном скрипте: {traceback.format_exc()}")
+                self._capture_screenshot(context)
                 self.driver.quit()
                 self._human_delay(300, 350)
                 self.driver = self._init_driver()

@@ -4,6 +4,8 @@ import random
 import re
 import logging
 import redis
+import os
+import traceback
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,6 +14,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
 from fake_useragent import UserAgent, FakeUserAgentError
 from config import REDIS_HOST, REDIS_PORT
+from django.utils import timezone
 
 class DromParser:
     def __init__(self, filters=None, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0):
@@ -54,6 +57,18 @@ class DromParser:
     def _init_logger(self):
         logging.basicConfig(level=logging.INFO)
         return logging.getLogger("drom_parser")
+    
+    def _capture_screenshot(self, context: str = "error"):
+        try:
+            timestamp = timezone.datetime.now().strftime("%Y%m%d_%H%M%S")
+            folder = os.path.join("screenshots/drom", context)
+            os.makedirs(folder, exist_ok=True)
+            path = os.path.join(folder, f"{context}_{timestamp}.png")
+            self.driver.save_screenshot(path)
+            self.logger.info(f"Screenshot saved to {path}")
+        except Exception as e:
+            self.logger.error(f"Failed to capture screenshot: {e}")
+    
     
     def _extract_drom_id(self, url: str) -> str | None:
         match = re.search(r'/(\d+).html', url)  # Ищем число перед ?
@@ -298,18 +313,20 @@ class DromParser:
                     
                     self.logger.info("Успешно загружены объявления")
                     
-                except TimeoutException:
+                except TimeoutException as ex:
+                    context = f"load_ads_timeout_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    self.logger.error(f"Ошибка ожидания загрузки объявлений (Timeout): {traceback.format_exc()}")
+                    self._capture_screenshot(context)
                     self.logger.error("Объявления не загрузились. Проверьте:")
                     self.logger.error("1. Интернет-соединение")
                     self.logger.error("2. Наличие капчи")
                     self.logger.error("3. Актуальность селекторов")
-                    
-                    # # Сделайте скриншот для диагностики
-                    # self.driver.save_screenshot("error.png")
                     return False
                     
-                except Exception as e:
-                    self.logger.error(f"Неожиданная ошибка: {str(e)}")
+                except Exception as ex:
+                    context = f"load_ads_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    self.logger.error(f"Ошибка ожидания загрузки объявлений: {traceback.format_exc()}")
+                    self._capture_screenshot(context)
                     return False
                 
                 new_ads = self._parse_ads()
@@ -326,7 +343,9 @@ class DromParser:
                                 self.logger.info(f"New ad: {details}")
                             # self._human_delay(2, 5)
                         except Exception as ex:
-                            self.logger.error(f"Error processing ad: {ex}")
+                            context = f"process_ads_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            self.logger.error(f"Ошибка процессинга объявлений: {traceback.format_exc()}")
+                            self._capture_screenshot(context)
                             continue
                 else:
                     self.logger.info("No new ads found.")
@@ -338,6 +357,9 @@ class DromParser:
                         
             except Exception as ex:
                 # При ошибке выход на 5 минут, после - повторный запуск
+                context = f"main_loop_{timezone.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                self.logger.error(f"Ошибка в основном цикле: {traceback.format_exc()}")
+                self._capture_screenshot(context)
                 self.logger.error(f"Unhandled error: {ex} \n It may be block IP or something else. \n Restarting in 5 minutes")
                 self.driver.quit()
                 self._human_delay(300, 350)
