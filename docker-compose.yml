@@ -1,9 +1,14 @@
 version: '3.8'
 
+networks:
+  app_network:
+    external: false
+    name: ${NETWORK_NAME:-parser_network}
+
 services:
   web:
     build: .
-    container_name: core
+    container_name: ${CONTAINER_PREFIX:-parser}_core
     ports:
       - "8000:8000"
     volumes:
@@ -24,29 +29,45 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - TZ=${TZ:-UTC}
     command: python manage.py runserver 0.0.0.0:8000
-    restart: always
+    restart: unless-stopped
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   db:
     image: postgres:latest
-    container_name: postgres
+    container_name: ${CONTAINER_PREFIX:-parser}_postgres
     env_file:
       - .env
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TZ=${TZ:-UTC}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       retries: 5
-    restart: always
+    restart: unless-stopped
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   redis:
     image: redis:latest
-    container_name: redis
+    container_name: ${CONTAINER_PREFIX:-parser}_redis
     volumes:
       - redis_data:/data
     healthcheck:
@@ -56,13 +77,23 @@ services:
       start_period: 30s
       timeout: 10s
     ports:
-      - "6379:6379"
-    restart: always
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-UTC}
+    command: redis-server --appendonly yes
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 0.5G
 
   bot:
     build:
       context: .
-    container_name: telegram-bot
+    container_name: ${CONTAINER_PREFIX:-parser}_telegram_bot
     volumes:
       - .:/app
     depends_on:
@@ -81,32 +112,59 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - TZ=${TZ:-UTC}
     command: python bot/tg_bot.py
-    restart: always
+    restart: unless-stopped
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 0.8G
 
   chrome_driver:
     image: selenium/standalone-chrome:latest
-    container_name: chrome_driver
+    container_name: ${CONTAINER_PREFIX:-parser}_chrome_driver
     ports:
       - "4444:4444"
     environment:
       - SE_NODE_MAX_INSTANCES=3
       - SE_NODE_MAX_SESSIONS=6
+      - TZ=${TZ:-UTC}
     shm_size: 6gb
-    restart: always
+    restart: unless-stopped
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
 
   parsers:
     build:
       context: .
-    container_name: parsers
+    container_name: ${CONTAINER_PREFIX:-parser}_parsers
     depends_on:
       - chrome_driver
       - redis
       - db
     volumes:
       - .:/app
-    command: sh -c "sleep 10 && python parsers/manager.py"  # Добавлена задержка перед запуском скрипта
-    restart: always
+    env_file:
+      - .env
+    environment:
+      - TZ=${TZ:-UTC}
+    command: sh -c "sleep 10 && python parsers/manager.py"
+    restart: unless-stopped
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
 volumes:
   postgres_data:
