@@ -32,70 +32,73 @@ async def get_user_filters(user_id: int) -> str:
     if not filters:
         return "⚠️ Фильтры не заданы"
     
+    # Функция для форматирования значений (может быть список или строка)
+    def format_value(value):
+        if isinstance(value, list):
+            return ", ".join(value) if value else "Не указано"
+        else:
+            return value or "Не указано"
+    
     return (
         f"⚙️ *Выбранные фильтры*\n\n"
-        f"• *Выбранные площадки:* {filters.platform or 'Не указано'}\n"
-        f"• *Выбранный год выпуска:* {filters.year or 'Не указано'}\n"
-        f"• *Выбранная цена:* {filters.price or 'Не указано'}\n"
-        f"• *Выбранные города:* {filters.city or 'Не указано'}\n"
-        f"• *Выбранные марки:* {filters.brand or 'Не указано'}\n"
-        f"• *Выбранный диапазон пробега:* {filters.mileage or 'Не указано'}\n"
-        f"• *Выбранный тип двигателя:* {filters.engine or 'Не указано'}\n"
-        f"• *Выбранный цвет кузова:* {filters.color or 'Не указано'}\n"
-        f"• *Выбранный вид коробки передач:* {filters.gearbox or 'Не указано'}\n"
-        f"• *Выбранный привод:* {filters.drive or 'Не указано'}\n"
-        f"• *Выбранный руль:* {filters.steering or 'Не указано'}\n"
-        f"• *Выбранное кол-во владельцев:* {filters.owners or 'Не указано'}\n"
-        f"• *Выбранный тип кузова:* {filters.body_type or 'Не указано'}\n"
-        f"• *Выбранное состояние:* {filters.condition or 'Не указано'}\n"
-        f"• *Выбранный тип объявлений:* {filters.ad_type or 'Не указано'}\n"
-        f"• *Выбранный тип продавца:* {filters.seller or 'Не указано'}\n"
+        f"• *Выбранные площадки:* {format_value(filters.platform)}\n"
+        f"• *Выбранный год выпуска:* {format_value(filters.year)}\n"
+        f"• *Выбранная цена:* {format_value(filters.price)}\n"
+        f"• *Выбранные города:* {format_value(filters.city)}\n"
+        f"• *Выбранные марки:* {format_value(filters.brand)}\n"
+        f"• *Выбранный диапазон пробега:* {format_value(filters.mileage)}\n"
+        f"• *Выбранный тип двигателя:* {format_value(filters.engine)}\n"
+        f"• *Выбранный цвет кузова:* {format_value(filters.color)}\n"
+        f"• *Выбранный вид коробки передач:* {format_value(filters.gearbox)}\n"
+        f"• *Выбранный привод:* {format_value(filters.drive)}\n"
+        f"• *Выбранный руль:* {format_value(filters.steering)}\n"
+        f"• *Выбранное кол-во владельцев:* {format_value(filters.owners)}\n"
+        f"• *Выбранный тип кузова:* {format_value(filters.body_type)}\n"
+        f"• *Выбранное состояние:* {format_value(filters.condition)}\n"
+        f"• *Выбранный тип объявлений:* {format_value(filters.ad_type)}\n"
+        f"• *Выбранный тип продавца:* {format_value(filters.seller)}\n"
     )
 
 async def get_user_filters_from_db(user_id: int):
     filters, _ = await UserFilters.objects.aget_or_create(user_id=user_id)
     return filters
 
-async def update_user_filter(user_id: int, field: str, value: str):
+async def update_user_filter(user_id: int, field: str, value):
     """
     Обновляет значение фильтра для пользователя.
     
-    Если поле является ArrayField:
-      - Если value содержит запятую (", "), значит, это ручной ввод нескольких значений,
-        и они преобразуются в список.
-      - Если value не содержит запятую, происходит переключение выбранного значения:
-        если значение уже присутствует в списке – оно удаляется, иначе – добавляется.
-    
-    Если поле является обычным CharField, значение сохраняется как строка.
+    Параметр value может быть:
+    - Строкой: обычное значение или строка с разделителями для массива
+    - Списком: прямая установка массива значений
+    - None: очистка значения
     """
     filters, _ = await UserFilters.objects.aget_or_create(user_id=user_id)
     
     # Получаем объект поля по его имени
     model_field = UserFilters._meta.get_field(field)
     
-    if isinstance(model_field, ArrayField):
-        # Получаем текущее значение поля (список) или создаём пустой список
-        current_values = getattr(filters, field) or []
-        
-        if ", " in value:
-            # Ручной ввод нескольких значений, например: "val1, val2, val3"
-            new_values = [v.strip() for v in value.split(",")]
-        else:
-            # Inline-обновление: переключаем значение
-            if value in current_values:
-                new_values = [v for v in current_values if v != value]
-            else:
-                new_values = current_values + [value]
+    # Если значение уже является списком, используем его как есть
+    if isinstance(value, list):
+        setattr(filters, field, value)
+    # Если это ArrayField и значение - строка с разделителями
+    elif isinstance(model_field, ArrayField) and isinstance(value, str) and "," in value:
+        new_values = [v.strip() for v in value.split(",")]
         setattr(filters, field, new_values)
+    # Обычное текстовое поле или одно значение для ArrayField
     else:
-        # Для обычного текстового поля сохраняем значение напрямую
         setattr(filters, field, value)
     
     await filters.asave()
     
 async def get_user_filter_values(user_id: int, field: str):
     filters = await get_user_filters_from_db(user_id)
-    return getattr(filters, field) or []
+    value = getattr(filters, field)
+    
+    # Если значение не пустое и не список, преобразуем его в список с одним элементом
+    if value and not isinstance(value, list):
+        return [value]
+    
+    return value or []
 
 async def clear_user_filter(user_id: int, field: str):
     filters, _ = await UserFilters.objects.aget_or_create(user_id=user_id)

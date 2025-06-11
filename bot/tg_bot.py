@@ -11,10 +11,11 @@ django.setup()
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.client.bot import DefaultBotProperties
+from aiogram.types import BotCommand, BotCommandScopeDefault
 
 from dotenv import load_dotenv
 
-from commands import start_command
+from commands import start_command, monitor_commands, filters_command
 from handlers import monitoring_handler, filters_handler
 from callbacks import filters_callback, filters_check_callback
 from ads_sender import main as start_ads_sender
@@ -36,13 +37,27 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(encoding='utf-8')
 
+async def set_commands(bot: Bot):
+    commands = [
+        BotCommand(command="start", description="Запустить бота"),
+        BotCommand(command="monitor_on", description="Включить мониторинг"),
+        BotCommand(command="monitor_off", description="Выключить мониторинг"),
+        BotCommand(command="filters", description="Настроить фильтры"),
+    ]
+    await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
+
 async def main():
     try:
         bot = Bot(os.getenv('TELEGRAM_BOT_TOKEN'), default=DefaultBotProperties(parse_mode='HTML'))
         dp = Dispatcher()
         
+        # Устанавливаем команды бота
+        await set_commands(bot)
+        
         dp.include_routers(
             start_command.router,
+            monitor_commands.router,
+            filters_command.router,
             monitoring_handler.router,
             filters_handler.router,
             filters_callback.router,

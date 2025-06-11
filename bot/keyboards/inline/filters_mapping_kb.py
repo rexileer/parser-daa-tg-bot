@@ -71,16 +71,22 @@ FILTER_MAPPING_KB = {
     "Руль": ["левый", "правый"],
     "Тип объявлений": ["продвиж", "обычное"],
 }
-     
-# Пагинация
-PAGE_SIZE = 9  # Количество элементов на одной странице
 
-def paginate_list(items, page_number):
-    """Разбивает список на страницы по PAGE_SIZE элементов"""
-    start_index = (page_number - 1) * PAGE_SIZE
-    end_index = start_index + PAGE_SIZE
-    return items[start_index:end_index]
-     
+# 36 крупнейших городов России
+POPULAR_CITIES = [
+    "Москва", "Санкт-Петербург", "Новосибирск", 
+    "Екатеринбург", "Казань", "Нижний Новгород", 
+    "Челябинск", "Самара", "Омск", 
+    "Ростов-на-Дону", "Уфа", "Красноярск", 
+    "Воронеж", "Пермь", "Волгоград", 
+    "Краснодар", "Саратов", "Тюмень", 
+    "Тольятти", "Ижевск", "Барнаул", 
+    "Ульяновск", "Иркутск", "Хабаровск", 
+    "Ярославль", "Владивосток", "Махачкала", 
+    "Томск", "Оренбург", "Кемерово", 
+    "Новокузнецк", "Рязань", "Астрахань", 
+    "Пенза", "Липецк", "Киров"
+]
      
 def filter_keyboard(filter_name: str, selected_values=None, page=1) -> InlineKeyboardMarkup:
     if selected_values is None:
@@ -88,15 +94,9 @@ def filter_keyboard(filter_name: str, selected_values=None, page=1) -> InlineKey
     inline_keyboard = []
     options = FILTER_MAPPING_KB.get(filter_name)
     if options:
-        # Сначала определим, какие опции показывать на текущей странице
-        options_per_page = 9  # 3x3
-        start_index = (page - 1) * options_per_page
-        end_index = start_index + options_per_page
-        page_options = options[start_index:end_index]
-
-        # Проходим по опциям и добавляем их в клавиатуру
+        # Проходим по всем опциям и добавляем их в клавиатуру
         row = []  # Список для одной строки
-        for idx, option in enumerate(page_options):
+        for idx, option in enumerate(options):
             # Если значение выбрано, добавляем галочку, иначе – крестик (или другой символ)
             if option in selected_values:
                 text = f"✅ {option}"
@@ -105,7 +105,7 @@ def filter_keyboard(filter_name: str, selected_values=None, page=1) -> InlineKey
 
             row.append(InlineKeyboardButton(
                 text=text,
-                callback_data=f"toggle_filter_{filter_name}_{option}_{page}"
+                callback_data=f"toggle_filter_{filter_name}_{option}_1"  # page=1 всегда
             ))
 
             # Если достигли 3 кнопок в строке, добавляем строку в клавиатуру и очищаем row
@@ -116,30 +116,6 @@ def filter_keyboard(filter_name: str, selected_values=None, page=1) -> InlineKey
         # Добавляем оставшиеся кнопки, если их меньше 3
         if row:
             inline_keyboard.append(row)
-            
-        # Кнопки для перехода между страницами
-        page_buttons = []
-
-        if page > 1:
-            page_buttons.append(InlineKeyboardButton(
-                text="⬅️ Назад",
-                callback_data=f"filter_page_{filter_name}_{page - 1}"
-            ))
-
-        total_pages = (len(options) - 1) // PAGE_SIZE + 1
-        page_buttons.append(InlineKeyboardButton(
-            text=f"Страница {page} из {total_pages}",
-            callback_data="none"
-        ))
-
-        if len(options) > page * options_per_page:
-            page_buttons.append(InlineKeyboardButton(
-                text="Вперёд ➡️",
-                callback_data=f"filter_page_{filter_name}_{page+1}"
-            ))
-
-        if page_buttons:
-            inline_keyboard.append(page_buttons)
 
         inline_keyboard.append([InlineKeyboardButton(
             text="Очистить фильтр",
@@ -152,6 +128,50 @@ def filter_keyboard(filter_name: str, selected_values=None, page=1) -> InlineKey
         )])
         return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
     return None
+
+
+def city_keyboard(selected_values=None) -> InlineKeyboardMarkup:
+    """Создаёт клавиатуру с популярными городами"""
+    if selected_values is None:
+        selected_values = []
+    
+    inline_keyboard = []
+    row = []
+    
+    # Добавляем кнопки с городами
+    for i, city in enumerate(POPULAR_CITIES):
+        # Если этот город уже выбран, добавляем галочку
+        if city in selected_values:
+            text = f"✅ {city}"
+        else:
+            text = f"{city}"
+        
+        row.append(InlineKeyboardButton(text=text, callback_data=f"toggle_city_{city}"))
+        
+        # Добавляем по 3 кнопки в ряд
+        if (i + 1) % 3 == 0 or i == len(POPULAR_CITIES) - 1:
+            inline_keyboard.append(row)
+            row = []
+    
+    # Добавляем кнопку очистки и возврата к фильтрам
+    inline_keyboard.append([InlineKeyboardButton(
+        text="Очистить фильтр",
+        callback_data="clear_filter_Город",
+    )])
+    
+    inline_keyboard.append([InlineKeyboardButton(
+        text="⬅️ Вернуться к фильтрам",
+        callback_data="filters_edit",
+    )])
+    
+    # Добавляем кнопку для ввода своего города
+    inline_keyboard.append([InlineKeyboardButton(
+        text="✏️ Ввести свой город",
+        callback_data="enter_custom_city",
+    )])
+    
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
 
 def filter_keyboard_back_button(filter_name: str) -> InlineKeyboardMarkup:
     inline_keyboard = []
