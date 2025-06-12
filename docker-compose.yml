@@ -30,7 +30,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TZ=${TZ:-UTC}
-      - WEBSITE_URL=http://localhost:8000
+      - WEBSITE_URL=${WEBSITE_URL:-https://example.com}
     command: python manage.py runserver 0.0.0.0:8000
     restart: unless-stopped
     networks:
@@ -114,7 +114,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TZ=${TZ:-UTC}
-      - WEBSITE_URL=http://localhost:8000
+      - WEBSITE_URL=${WEBSITE_URL:-https://example.com}
     command: python bot/tg_bot.py
     restart: unless-stopped
     networks:
@@ -190,6 +190,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TZ=${TZ:-UTC}
+      - WEBSITE_URL=${WEBSITE_URL:-https://example.com}
     command: python manage.py run_ads_tasks
     restart: unless-stopped
     networks:
