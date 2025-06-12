@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ ad.brand }} {{ ad.model }} - {{ ad.year }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">{{ ad.brand }} {{ ad.model }} {{ ad.year }}</h2>
+                    {% if ad.platform == 'avito' %}
+                        <span class="badge bg-success">Avito</span>
+                    {% elif ad.platform == 'drom' %}
+                        <span class="badge bg-primary">Drom</span>
+                    {% elif ad.platform == 'autoru' %}
+                        <span class="badge bg-warning text-dark">Auto.ru</span>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body">
+                    {% if ad.image %}
+                        <img src="{{ ad.image }}" class="img-fluid rounded mb-4" alt="{{ ad.name }}">
+                    {% else %}
+                        <div class="bg-light rounded mb-4 d-flex align-items-center justify-content-center" style="height: 300px;">
+                            <i class="fas fa-car fa-5x text-muted"></i>
+                        </div>
+                    {% endif %}
+                    
+                    <h3 class="price mb-4">{{ ad.price|floatformat:0 }} ₽</h3>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h4>Основная информация</h4>
+                            <table class="table">
+                                <tbody>
+                                    <tr>
+                                        <th>Марка</th>
+                                        <td>{{ ad.brand }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Модель</th>
+                                        <td>{{ ad.model }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Год выпуска</th>
+                                        <td>{{ ad.year }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Город</th>
+                                        <td>{{ ad.city }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Продавец</th>
+                                        <td>{{ ad.seller|default:"Не указан" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Тип объявления</th>
+                                        <td>{{ ad.ad_type|default:"Не указан" }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h4>Технические характеристики</h4>
+                            <table class="table">
+                                <tbody>
+                                    <tr>
+                                        <th>Пробег</th>
+                                        <td>{{ ad.mileage|default:"Не указан" }} км</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Двигатель</th>
+                                        <td>{{ ad.engine|default:"Не указан" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Коробка передач</th>
+                                        <td>{{ ad.gearbox|default:"Не указана" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Привод</th>
+                                        <td>{{ ad.drive|default:"Не указан" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Руль</th>
+                                        <td>{{ ad.steering|default:"Не указан" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Тип кузова</th>
+                                        <td>{{ ad.body_type|default:"Не указан" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Цвет</th>
+                                        <td>{{ ad.color|default:"Не указан" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Владельцев по ПТС</th>
+                                        <td>{{ ad.owners|default:"Не указано" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Состояние</th>
+                                        <td>{{ ad.condition|default:"Не указано" }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{{ ad.link }}" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-external-link-alt me-2"></i> Перейти к оригинальному объявлению
+                        </a>
+                        <a href="{% url 'ads:index' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Вернуться к списку объявлений
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-footer text-muted">
+                    <small>Опубликовано: {{ ad.published_at|date:"d.m.Y H:i" }}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">Похожие объявления</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Функционал будет доступен в следующей версии.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

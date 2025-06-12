@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+
+{% block title %}Автомобильные объявления{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Filters Section -->
+    <div class="col-md-3 mb-4">
+        <div class="filter-section">
+            <h4 class="filter-heading">Фильтры</h4>
+            <form method="get" class="mb-3">
+                <div class="accordion" id="filterAccordion">
+                    <!-- Basic Filters -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#basicFilters">
+                                Основные фильтры
+                            </button>
+                        </h2>
+                        <div id="basicFilters" class="accordion-collapse collapse show" data-bs-parent="#filterAccordion">
+                            <div class="accordion-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Площадка</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="platform" value="avito" id="avito" 
+                                            {% if 'avito' in selected_platforms %}checked{% endif %}>
+                                        <label class="form-check-label" for="avito">Avito</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="platform" value="drom" id="drom"
+                                            {% if 'drom' in selected_platforms %}checked{% endif %}>
+                                        <label class="form-check-label" for="drom">Drom</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="platform" value="autoru" id="autoru"
+                                            {% if 'autoru' in selected_platforms %}checked{% endif %}>
+                                        <label class="form-check-label" for="autoru">Auto.ru</label>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_city" class="form-label">Город</label>
+                                    {{ form.city }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_brand" class="form-label">Марка</label>
+                                    {{ form.brand }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Цена, ₽</label>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            {{ form.price_min }}
+                                        </div>
+                                        <div class="col-6">
+                                            {{ form.price_max }}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Год выпуска</label>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            {{ form.year_min }}
+                                        </div>
+                                        <div class="col-6">
+                                            {{ form.year_max }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Filters -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters">
+                                Дополнительные фильтры
+                            </button>
+                        </h2>
+                        <div id="advancedFilters" class="accordion-collapse collapse" data-bs-parent="#filterAccordion">
+                            <div class="accordion-body">
+                                <div class="mb-3">
+                                    <label for="id_body_type" class="form-label">Тип кузова</label>
+                                    {{ form.body_type }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_engine" class="form-label">Двигатель</label>
+                                    {{ form.engine }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_mileage_range" class="form-label">Пробег</label>
+                                    {{ form.mileage_range }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_gearbox" class="form-label">Коробка передач</label>
+                                    {{ form.gearbox }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_drive" class="form-label">Привод</label>
+                                    {{ form.drive }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_steering" class="form-label">Руль</label>
+                                    {{ form.steering }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_color" class="form-label">Цвет</label>
+                                    {{ form.color }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_seller" class="form-label">Продавец</label>
+                                    {{ form.seller }}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Дата публикации</label>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            {{ form.date_min }}
+                                        </div>
+                                        <div class="col-6">
+                                            {{ form.date_max }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 mt-3">
+                    <button type="submit" class="btn btn-primary">Применить фильтры</button>
+                    <a href="{% url 'ads:index' %}" class="btn btn-outline-secondary">Сбросить</a>
+                </div>
+            </form>
+            
+            <!-- Stats -->
+            <div class="mt-4">
+                <h5>Статистика</h5>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Всего объявлений
+                        <span class="badge bg-primary rounded-pill">{{ stats.total_ads }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Уникальных марок
+                        <span class="badge bg-primary rounded-pill">{{ stats.unique_brands }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Advertisements Section -->
+    <div class="col-md-9">
+        <h2 class="mb-4">Объявления</h2>
+        
+        {% if advertisements %}
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                {% for ad in advertisements %}
+                    <div class="col">
+                        <div class="card h-100">
+                            {% if ad.platform == 'avito' %}
+                                <span class="platform-badge badge bg-success">Avito</span>
+                            {% elif ad.platform == 'drom' %}
+                                <span class="platform-badge badge bg-primary">Drom</span>
+                            {% elif ad.platform == 'autoru' %}
+                                <span class="platform-badge badge bg-warning text-dark">Auto.ru</span>
+                            {% endif %}
+                            
+                            {% if ad.image %}
+                                <img src="{{ ad.image }}" class="card-img-top" alt="{{ ad.name }}">
+                            {% else %}
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center">
+                                    <i class="fas fa-car fa-3x text-muted"></i>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="card-body">
+                                <h5 class="card-title">{{ ad.brand }} {{ ad.model }}</h5>
+                                <p class="card-text">{{ ad.year }}, {{ ad.mileage|default:"н/д" }} км</p>
+                                <p class="card-text price">{{ ad.price|floatformat:0 }} ₽</p>
+                                <p class="card-text"><small class="text-muted">{{ ad.city }}</small></p>
+                            </div>
+                            <div class="card-footer bg-transparent">
+                                <div class="d-grid gap-2">
+                                    <a href="{{ ad.link }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-external-link-alt me-1"></i> Перейти к объявлению
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Pagination -->
+            {% if advertisements.has_other_pages %}
+                <nav class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if advertisements.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo; Первая</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ advertisements.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Предыдущая</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo; Первая</span>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">Предыдущая</span>
+                            </li>
+                        {% endif %}
+                        
+                        {% for i in advertisements.paginator.page_range %}
+                            {% if advertisements.number == i %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ i }}</span>
+                                </li>
+                            {% elif i > advertisements.number|add:'-3' and i < advertisements.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if advertisements.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ advertisements.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Следующая</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ advertisements.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Последняя &raquo;</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">Следующая</span>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">Последняя &raquo;</span>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> Объявления не найдены. Попробуйте изменить параметры фильтра.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 

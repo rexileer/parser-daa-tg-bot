@@ -30,6 +30,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TZ=${TZ:-UTC}
+      - WEBSITE_URL=http://localhost:8000
     command: python manage.py runserver 0.0.0.0:8000
     restart: unless-stopped
     networks:
@@ -113,6 +114,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TZ=${TZ:-UTC}
+      - WEBSITE_URL=http://localhost:8000
     command: python bot/tg_bot.py
     restart: unless-stopped
     networks:
@@ -165,6 +167,38 @@ services:
         limits:
           cpus: '1.0'
           memory: 1G
+
+  ads_sync:
+    build:
+      context: .
+    container_name: ${CONTAINER_PREFIX:-parser}_ads_sync
+    depends_on:
+      - redis
+      - db
+      - web
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TZ=${TZ:-UTC}
+    command: python manage.py run_ads_tasks
+    restart: unless-stopped
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 0.5G
 
 volumes:
   postgres_data:

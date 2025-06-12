@@ -8,6 +8,7 @@ start_keyboard = ReplyKeyboardMarkup(
         ],
         [
             KeyboardButton(text="Фильтры"),
+            KeyboardButton(text="Смотреть все объявления"),
         ],
     ],
     resize_keyboard=True,

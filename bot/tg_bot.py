@@ -15,8 +15,8 @@ from aiogram.types import BotCommand, BotCommandScopeDefault
 
 from dotenv import load_dotenv
 
-from commands import start_command, monitor_commands, filters_command
-from handlers import monitoring_handler, filters_handler
+from commands import start_command, monitor_commands, filters_command, view_all_ads_command
+from handlers import monitoring_handler, filters_handler, view_all_ads_handler
 from callbacks import filters_callback, filters_check_callback
 from ads_sender import main as start_ads_sender
 from broadcast_sender import broadcast_loop as start_broadcast_sender
@@ -43,6 +43,7 @@ async def set_commands(bot: Bot):
         BotCommand(command="monitor_on", description="Включить мониторинг"),
         BotCommand(command="monitor_off", description="Выключить мониторинг"),
         BotCommand(command="filters", description="Настроить фильтры"),
+        BotCommand(command="all_ads", description="Смотреть все объявления на сайте"),
     ]
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
 
@@ -58,8 +59,10 @@ async def main():
             start_command.router,
             monitor_commands.router,
             filters_command.router,
+            view_all_ads_command.router,
             monitoring_handler.router,
             filters_handler.router,
+            view_all_ads_handler.router,
             filters_callback.router,
             filters_check_callback.router,
         )
