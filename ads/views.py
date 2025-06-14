@@ -26,6 +26,7 @@ def index(request):
         # Brand filter
         brand = form.cleaned_data.get('brand')
         if brand:
+            # For brand names, also use lowercase comparison
             advertisements = advertisements.filter(brand__iexact=brand)
         
         # City filter (case-insensitive partial match)
@@ -109,7 +110,18 @@ def index(request):
             
         color = form.cleaned_data.get('color')
         if color:
-            advertisements = advertisements.filter(color__iexact=color)
+            # Handle both 'е' and 'ё' variants in color names
+            # Create a Q object for the exact lowercase match
+            color_filter = Q(color__iexact=color)
+            # Add another condition for the alternative spelling
+            if 'е' in color:
+                alt_color = color.replace('е', 'ё')
+                color_filter |= Q(color__iexact=alt_color)
+            elif 'ё' in color:
+                alt_color = color.replace('ё', 'е')
+                color_filter |= Q(color__iexact=alt_color)
+            
+            advertisements = advertisements.filter(color_filter)
             
         seller = form.cleaned_data.get('seller')
         if seller:

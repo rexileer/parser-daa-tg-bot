@@ -24,8 +24,25 @@ class AdvertisementFilterForm(forms.Form):
     # Get unique values for dynamic dropdowns
     @staticmethod
     def get_unique_values(field):
+        # Get all distinct values for the field
         values = Advertisement.objects.values_list(field, flat=True).distinct()
-        return sorted([(v, v) for v in values if v and v != 'unknown'])
+        
+        # Process values: convert to lowercase, replace 'ё' with 'е', filter out empty values
+        normalized_values = []
+        for v in values:
+            if v and v != 'unknown':
+                # Convert to lowercase and replace ё with е
+                normalized_v = v.lower().replace('ё', 'е')
+                normalized_values.append(normalized_v)
+        
+        # Remove duplicates using set
+        unique_values = list(set(normalized_values))
+        
+        # Sort the values
+        unique_values.sort()
+        
+        # Format as (value, value) tuples for form choices with proper capitalization
+        return [(v, v.capitalize()) for v in unique_values]
     
     # Search fields
     city = forms.CharField(
