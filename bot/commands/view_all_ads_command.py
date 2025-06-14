@@ -17,13 +17,7 @@ async def view_all_ads_command(message: Message):
     # Get the website URL from environment variable or use default
     website_url = os.getenv('WEBSITE_URL', 'https://example.com')
     
-    # Check if the URL is valid for Telegram (must be https:// and not localhost)
-    if website_url.startswith('http://') or 'localhost' in website_url or '127.0.0.1' in website_url:
-        await message.answer(
-            "⚠️ Для просмотра объявлений на сайте перейдите по адресу, указанному в настройках.\n\n"
-            "Примечание: В данный момент сайт доступен только по IP-адресу или домену, а не через localhost."
-        )
-    else:
+    try:
         keyboard = view_all_ads_keyboard(website_url)
         
         await message.answer(
@@ -31,3 +25,6 @@ async def view_all_ads_command(message: Message):
             "На сайте вы можете настроить фильтры и найти интересующие вас объявления.",
             reply_markup=keyboard
         ) 
+    except Exception as e:
+        logger.error(f"Error in view_all_ads_command: {e}")
+        await message.answer("Произошла ошибка при попытке перейти на сайт. Попробуйте позже.")
