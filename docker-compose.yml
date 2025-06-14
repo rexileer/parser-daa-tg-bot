@@ -191,7 +191,9 @@ services:
       - REDIS_PORT=6379
       - TZ=${TZ:-UTC}
       - WEBSITE_URL=${WEBSITE_URL:-https://example.com}
-    command: python manage.py run_ads_tasks
+      - ADS_CLEANUP_DAYS=${ADS_CLEANUP_DAYS:-7}
+      - ADS_SYNC_INTERVAL=${ADS_SYNC_INTERVAL:-60}
+    command: python manage.py run_ads_tasks --cleanup-days=${ADS_CLEANUP_DAYS:-7} --interval=${ADS_SYNC_INTERVAL:-60}
     restart: unless-stopped
     networks:
       - app_network
