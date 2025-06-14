@@ -221,6 +221,17 @@ class DromParser:
             except:
                 image = ""
             extracted_info = self._extract_info(ad['link'])
+            try:
+                city = WebDriverWait(self.driver, 0.5).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "div[class='css-1j8ksy7 eotelyr0'] > div:last-child")
+                    )
+                )
+                # Используем регулярное выражение для замены префикса независимо от регистра
+                city = re.sub(r'(?i)город\s*:\s*', '', city.text).strip()
+            except:
+                city = extracted_info[0] if extracted_info else None
+
             title = ad.get('title', '')  # Получаем заголовок, если его нет — пустая строка
             title_parts = title.rsplit(", ", 1)  # Разделяем строку по последней запятой
             characteristics = self._parse_characteristics()
@@ -237,7 +248,7 @@ class DromParser:
                 "year": title_parts[1] if len(title_parts) > 1 else None,   # Если нет запятой — год не указан
                 "image": image,
                 "price": ad['price'],
-                "city": extracted_info[0] if extracted_info else None,
+                "city": city,
                 
                 # Бренд и модель
                 "brand": extracted_info[1] if extracted_info else None,
