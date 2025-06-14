@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import StartCommandResponse, BroadcastMessage
+from .models import StartCommandResponse, BroadcastMessage, ViewAllAdsResponse
 from django.utils.html import format_html
 from django.db import models
 from django.forms import FileInput
@@ -15,7 +15,13 @@ class StartCommandResponseAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False  # Запрещаем удаление
 
+@admin.register(ViewAllAdsResponse)
+class ViewAllAdsResponseAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return not ViewAllAdsResponse.objects.exists()  # Разрешаем добавлять, только если нет записей
 
+    def has_delete_permission(self, request, obj=None):
+        return False  # Запрещаем удаление
 
 @admin.register(BroadcastMessage)
 class BroadcastMessageAdmin(admin.ModelAdmin):

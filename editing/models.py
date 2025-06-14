@@ -17,6 +17,21 @@ class StartCommandResponse(models.Model):
         verbose_name = 'Приветственное сообщение'
         verbose_name_plural = 'Приветственное сообщение'
 
+class ViewAllAdsResponse(models.Model):
+    text = models.TextField()
+
+    def save(self, *args, **kwargs):
+        if ViewAllAdsResponse.objects.exists():
+            self.pk = ViewAllAdsResponse.objects.first().pk
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return "Сообщение для просмотра всех объявлений"
+    
+    class Meta:
+        verbose_name = 'Сообщение для просмотра всех объявлений'
+        verbose_name_plural = 'Сообщение для просмотра всех объявлений'
+
 
 
 class BroadcastMessage(models.Model):
