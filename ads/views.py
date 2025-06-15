@@ -26,8 +26,8 @@ def index(request):
         # Brand filter
         brand = form.cleaned_data.get('brand')
         if brand:
-            # For brand names, also use lowercase comparison
-            advertisements = advertisements.filter(brand__iexact=brand)
+            # Changed from iexact to icontains to match partial brand names
+            advertisements = advertisements.filter(brand__icontains=brand)
         
         # City filter (case-insensitive partial match)
         city = form.cleaned_data.get('city')
@@ -87,45 +87,45 @@ def index(request):
             elif max_mileage is not None:
                 advertisements = advertisements.filter(mileage__lte=max_mileage)
         
-        # Car details filters
+        # Car details filters - changed all to icontains for partial matching
         body_type = form.cleaned_data.get('body_type')
         if body_type:
-            advertisements = advertisements.filter(body_type__iexact=body_type)
+            advertisements = advertisements.filter(body_type__icontains=body_type)
             
         engine = form.cleaned_data.get('engine')
         if engine:
-            advertisements = advertisements.filter(engine__iexact=engine)
+            advertisements = advertisements.filter(engine__icontains=engine)
             
         gearbox = form.cleaned_data.get('gearbox')
         if gearbox:
-            advertisements = advertisements.filter(gearbox__iexact=gearbox)
+            advertisements = advertisements.filter(gearbox__icontains=gearbox)
             
         drive = form.cleaned_data.get('drive')
         if drive:
-            advertisements = advertisements.filter(drive__iexact=drive)
+            advertisements = advertisements.filter(drive__icontains=drive)
             
         steering = form.cleaned_data.get('steering')
         if steering:
-            advertisements = advertisements.filter(steering__iexact=steering)
+            advertisements = advertisements.filter(steering__icontains=steering)
             
         color = form.cleaned_data.get('color')
         if color:
             # Handle both 'е' and 'ё' variants in color names
-            # Create a Q object for the exact lowercase match
-            color_filter = Q(color__iexact=color)
+            # Create a Q object for the partial lowercase match
+            color_filter = Q(color__icontains=color)
             # Add another condition for the alternative spelling
             if 'е' in color:
                 alt_color = color.replace('е', 'ё')
-                color_filter |= Q(color__iexact=alt_color)
+                color_filter |= Q(color__icontains=alt_color)
             elif 'ё' in color:
                 alt_color = color.replace('ё', 'е')
-                color_filter |= Q(color__iexact=alt_color)
+                color_filter |= Q(color__icontains=alt_color)
             
             advertisements = advertisements.filter(color_filter)
             
         seller = form.cleaned_data.get('seller')
         if seller:
-            advertisements = advertisements.filter(seller__iexact=seller)
+            advertisements = advertisements.filter(seller__icontains=seller)
         
         # Date filters
         date_min = form.cleaned_data.get('date_min')
