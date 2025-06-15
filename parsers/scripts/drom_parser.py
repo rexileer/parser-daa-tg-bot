@@ -160,7 +160,11 @@ class DromParser:
                         else:
                             self.logger.info(f"Пустое значение для {key}")
                     else:
-                        self.logger.info(f"Не найдено элементов key или value в строке: {tr.get_attribute('outerHTML')}")
+                        s = tr.get_attribute('outerHTML')
+                        if "power-tax" in s:
+                            continue
+                        else:
+                            self.logger.info(f"Не найдено элементов key или value в строке: {s}")
 
                 except Exception as e:
                     self.logger.error(f"Ошибка при обработке строки: {tr.get_attribute('outerHTML')}, ошибка: {e}")
