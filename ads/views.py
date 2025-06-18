@@ -31,8 +31,18 @@ def index(request):
         
         # City filter (case-insensitive partial match)
         city = form.cleaned_data.get('city')
+        city_select = form.cleaned_data.get('city_select')
+        
+        # Create a filter for city (from either text input or dropdown)
+        city_filter = Q()
         if city:
-            advertisements = advertisements.filter(city__icontains=city)
+            city_filter |= Q(city__icontains=city)
+        if city_select:
+            city_filter |= Q(city__icontains=city_select)
+        
+        # Apply city filter if any city criteria was provided
+        if city or city_select:
+            advertisements = advertisements.filter(city_filter)
         
         # Price filters
         price_range = form.cleaned_data.get('price_range')

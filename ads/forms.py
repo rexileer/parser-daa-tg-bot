@@ -50,6 +50,12 @@ class AdvertisementFilterForm(forms.Form):
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введите город'})
     )
     
+    city_select = forms.ChoiceField(
+        required=False,
+        choices=[('', 'Выберите город')],  # Will be populated dynamically
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
     # Filter fields
     platform = forms.MultipleChoiceField(
         required=False,
@@ -162,4 +168,5 @@ class AdvertisementFilterForm(forms.Form):
         self.fields['drive'].choices = [('', 'Любой привод')] + self.get_unique_values('drive')
         self.fields['steering'].choices = [('', 'Любой руль')] + self.get_unique_values('steering')
         self.fields['color'].choices = [('', 'Любой цвет')] + self.get_unique_values('color')
-        self.fields['seller'].choices = [('', 'Любой тип продавца')] + self.get_unique_values('seller') 
+        self.fields['seller'].choices = [('', 'Любой тип продавца')] + self.get_unique_values('seller')
+        self.fields['city_select'].choices = [('', 'Выберите город')] + self.get_unique_values('city') 
