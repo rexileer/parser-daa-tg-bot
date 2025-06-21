@@ -4,6 +4,9 @@ import random
 import re
 import logging
 import redis
+import os
+import shutil
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,16 +15,21 @@ from selenium.webdriver.common.action_chains import ActionChains
 from config import REDIS_HOST, REDIS_PORT
 
 class AutoruParser:
-    def __init__(self, filters=None, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0):
+    def __init__(self, filters=None, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0, max_screenshots=20, max_screenshot_dirs=10):
         self.filters = filters or {}
         self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
         self.driver = self._init_driver()
         self.logger = self._init_logger()
+        self.screenshot_dir = self._init_screenshot_dir()
+        self.screenshot_count = 0
+        self.max_screenshots = max_screenshots  # Максимальное число скриншотов за одну итерацию
+        self.max_screenshot_dirs = max_screenshot_dirs  # Максимальное количество директорий со скриншотами
+        self._cleanup_old_screenshots()
     
     def _init_driver(self):
         options = webdriver.ChromeOptions()
         # Используем фиксированный desktop user agent
-        desktop_ua = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+        desktop_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         options.add_argument(f'user-agent={desktop_ua}')
         options.add_argument('--headless')
         options.add_argument('start-maximized')
@@ -51,6 +59,57 @@ class AutoruParser:
         logging.basicConfig(level=logging.INFO)
         return logging.getLogger("autoru_parser")
     
+    def _cleanup_old_screenshots(self):
+        """Удаляет старые директории со скриншотами, оставляя только последние N директорий"""
+        try:
+            base_dir = "screenshots/autoru"
+            if not os.path.exists(base_dir):
+                os.makedirs(base_dir, exist_ok=True)
+                return
+                
+            # Получаем все директории со скриншотами
+            dirs = []
+            for item in os.listdir(base_dir):
+                item_path = os.path.join(base_dir, item)
+                if os.path.isdir(item_path):
+                    # Получаем время модификации директории
+                    dirs.append((item_path, os.path.getmtime(item_path)))
+            
+            # Сортируем по времени (от старых к новым)
+            dirs.sort(key=lambda x: x[1])
+            
+            # Удаляем старые директории, если их больше чем max_screenshot_dirs
+            if len(dirs) > self.max_screenshot_dirs:
+                for dir_path, _ in dirs[:-self.max_screenshot_dirs]:
+                    self.logger.info(f"Удаляем старую директорию со скриншотами: {dir_path}")
+                    shutil.rmtree(dir_path, ignore_errors=True)
+        except Exception as e:
+            self.logger.error(f"Ошибка при очистке старых скриншотов: {e}")
+    
+    def _init_screenshot_dir(self):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        directory = f"screenshots/autoru/main_loop_{timestamp}"
+        os.makedirs(directory, exist_ok=True)
+        return directory
+        
+    def _take_screenshot(self, prefix="debug"):
+        """Take a screenshot and save it with timestamp for debugging"""
+        # Проверяем, не превышен ли лимит скриншотов
+        if self.screenshot_count >= self.max_screenshots:
+            self.logger.info(f"Достигнут лимит скриншотов ({self.max_screenshots}), пропускаем создание")
+            return None
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{self.screenshot_dir}/{prefix}_{timestamp}.png"
+        try:
+            self.driver.save_screenshot(filename)
+            self.screenshot_count += 1
+            self.logger.info(f"Screenshot saved to {filename} ({self.screenshot_count}/{self.max_screenshots})")
+            return filename
+        except Exception as e:
+            self.logger.error(f"Failed to take screenshot: {e}")
+            return None
+    
     def _extract_autoru_id(self, url: str) -> str | None:
         match = re.search(r'/(\d+)-\w+/', url)
         if not match:
@@ -59,24 +118,47 @@ class AutoruParser:
     
     def _human_delay(self, min_time=2, max_time=5):
         time.sleep(random.uniform(min_time, max_time))
-        
-    # def _human_mouse(self, min_time=2, max_time=5):
-    #     actions = ActionChains(self.driver)
-    #     try:
-    #         submit_button = WebDriverWait(self.driver, 10).until(
-    #             EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='SubscriptionSaveButton__buttonText']"))
-    #         )
-    #     except Exception as e:
-    #         self.logger.warning(f"Элемент для движения мыши не найден: {e}")
-    #         return
-    #     for _ in range(random.randint(min_time, max_time)):
-    #         offset_x = random.randint(10, 50)
-    #         offset_y = random.randint(10, 50)
-    #         actions.move_to_element_with_offset(submit_button, offset_x, offset_y).perform()
-    #         self.driver.execute_script("window.scrollBy(0, arguments[0]);", random.randint(100, 300))
-    #         self.logger.info("Scrolling")
-    #         self._human_delay(0.2, 0.7)
     
+    def _check_for_captcha(self):
+        """Check if a CAPTCHA is present on the page"""
+        try:
+            captcha_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'captcha')]")
+            if captcha_elements:
+                self._take_screenshot("captcha_detected")
+                self.logger.warning("CAPTCHA detected on the page")
+                return True
+                
+            # Also check for common CAPTCHA providers
+            if "recaptcha" in self.driver.page_source.lower() or "hcaptcha" in self.driver.page_source.lower():
+                self._take_screenshot("captcha_detected")
+                self.logger.warning("CAPTCHA provider detected on the page")
+                return True
+                
+            return False
+        except Exception as e:
+            self.logger.error(f"Error checking for CAPTCHA: {e}")
+            return False
+    
+    def _check_for_block(self):
+        """Check if we've been blocked or restricted"""
+        try:
+            block_texts = [
+                "доступ ограничен", 
+                "заблокирован", 
+                "подозрительная активность",
+                "временно недоступен"
+            ]
+            page_text = self.driver.page_source.lower()
+            for text in block_texts:
+                if text in page_text:
+                    self._take_screenshot("access_blocked")
+                    self.logger.warning(f"Access potentially blocked: '{text}' found on page")
+                    return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Error checking for blocks: {e}")
+            return False
+        
     def _parse_ads(self):
         ads = self.driver.find_elements(By.CSS_SELECTOR, "div[data-seo='listing-item']")
         new_ads = []
@@ -96,7 +178,6 @@ class AutoruParser:
                 self.logger.error(f"Error processing ad: {ex}")
                 continue
         self.logger.info(f"Found {len(new_ads)} new ads")
-        # self._human_mouse(2, 5)
         return new_ads
     
     def _parse_characteristics(self):
@@ -190,8 +271,8 @@ class AutoruParser:
             WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
         except Exception as e:
             self.logger.error(f"Ошибка ожидания загрузки изображений: {e}")
+            self._take_screenshot("image_loading_error")
             return None
-        # self._human_mouse(1, 2)
         self._human_delay(1, 3)
         
         try:
@@ -243,6 +324,7 @@ class AutoruParser:
             return normalized_details
         except Exception as ex:
             self.logger.error(f"Error parsing ad details: {ex}")
+            self._take_screenshot("detail_parsing_error")
         return None
     
     def _cookies_accept(self):
@@ -254,34 +336,131 @@ class AutoruParser:
             self.logger.info("Не удалось принять cookies, возможно их нет на странице.")
     
     def parse(self):
+        consecutive_errors = 0
+        max_consecutive_errors = 3
+        
         while True:
             try:
+                # Initialize a new screenshot directory for each iteration
+                self.screenshot_dir = self._init_screenshot_dir()
+                self.screenshot_count = 0  # Сбрасываем счетчик скриншотов
+                self._cleanup_old_screenshots()  # Очищаем старые директории
+                
+                # Reset cookies and create a new session
                 self.driver.delete_all_cookies()
                 url = "https://auto.ru/rossiya/cars/all/?sort=cr_date-desc"
                 self.logger.info("Opening auto.ru")
                 self.driver.get(url)
                 self.driver.implicitly_wait(10)
                 self.logger.info("Opened auto.ru")
-                self._cookies_accept()
-                self._human_delay()
-                # self._human_mouse(1, 2)
-                try:
-                    WebDriverWait(self.driver, 60).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='ListingItem']"))
-                    )
-                    self.logger.info("Объявления загружены, начинаем парсинг")
-                except Exception as e:
-                    self.logger.error(f"Ошибка ожидания объявлений: {e}")
-                    self._human_delay(5, 10)
+                
+                # Take a screenshot to see what's on the page
+                self._take_screenshot("initial_page")
+                
+                # Check for CAPTCHA or blocks
+                if self._check_for_captcha() or self._check_for_block():
+                    self.logger.error("Detected CAPTCHA or access restriction. Waiting before retry...")
+                    self._human_delay(300, 360)  # Wait longer if blocked
+                    consecutive_errors += 1
+                    if consecutive_errors >= max_consecutive_errors:
+                        self.logger.error(f"Reached {max_consecutive_errors} consecutive errors. Reinitializing driver...")
+                        self.driver.quit()
+                        self.driver = self._init_driver()
+                        consecutive_errors = 0
                     continue
+                
+                # Accept cookies if present
+                self._cookies_accept()
+                self._human_delay(3, 5)
+                
+                # Try to find listing items with better error handling
+                try:
+                    # First, check if page loaded at all
+                    WebDriverWait(self.driver, 20).until(
+                        EC.visibility_of_element_located((By.TAG_NAME, "body"))
+                    )
+                    
+                    # Take screenshot of the page content
+                    self._take_screenshot("before_listings_wait")
+                    
+                    # Try to find different ad container selectors (site might change)
+                    selectors = [
+                        "div[class='ListingItem']", 
+                        "div[data-seo='listing-item']",
+                        "div[class*='listing']"
+                    ]
+                    
+                    # Try each selector
+                    found = False
+                    for selector in selectors:
+                        try:
+                            self.logger.info(f"Trying selector: {selector}")
+                            WebDriverWait(self.driver, 30).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                            )
+                            self.logger.info(f"Found elements with selector: {selector}")
+                            found = True
+                            break
+                        except Exception as e:
+                            self.logger.warning(f"Selector {selector} failed: {e}")
+                    
+                    if not found:
+                        raise Exception("No listings found with any known selectors")
+                        
+                    self.logger.info("Объявления загружены, начинаем парсинг")
+                    
+                except Exception as e:
+                    self._take_screenshot("waiting_error")
+                    self.logger.error(f"Ошибка ожидания объявлений: {e}")
+                    
+                    # Get page source for debugging
+                    try:
+                        page_source = self.driver.page_source
+                        self.logger.info(f"Page title: {self.driver.title}")
+                        self.logger.info(f"Page source length: {len(page_source)}")
+                        # Сохраняем исходный код только если количество скриншотов не превышено
+                        if self.screenshot_count < self.max_screenshots:
+                            with open(f"{self.screenshot_dir}/page_source.html", "w", encoding="utf-8") as f:
+                                f.write(page_source)
+                            self.screenshot_count += 1
+                    except Exception as ps_error:
+                        self.logger.error(f"Failed to save page source: {ps_error}")
+                    
+                    consecutive_errors += 1
+                    if consecutive_errors >= max_consecutive_errors:
+                        self.logger.error(f"Reached {max_consecutive_errors} consecutive errors. Reinitializing driver...")
+                        self.driver.quit()
+                        self.driver = self._init_driver()
+                        consecutive_errors = 0
+                    
+                    self._human_delay(15, 30)  # Wait longer between retries
+                    continue
+                
+                # Reset consecutive errors counter on success
+                consecutive_errors = 0
+                
                 new_ads = self._parse_ads()
                 if new_ads:
                     count = 0
-                    for ad in new_ads:
+                    # Create a new directory for ad details screenshots only if we have new ads
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    ads_dir = f"screenshots/autoru/load_ads_{timestamp}"
+                    os.makedirs(ads_dir, exist_ok=True)
+                    
+                    # Ограничиваем количество обрабатываемых объявлений
+                    max_ads_to_process = min(len(new_ads), 10)  # Обрабатываем максимум 10 объявлений
+                    
+                    for ad in new_ads[:max_ads_to_process]:
                         try:
                             count += 1
-                            self.logger.info(f"Processing ad {count}/{len(new_ads)}")
+                            self.logger.info(f"Processing ad {count}/{max_ads_to_process}")
+                            # Set temporary screenshot dir for this ad
+                            temp_dir = self.screenshot_dir
+                            self.screenshot_dir = ads_dir
+                            self.screenshot_count = 0  # Сбрасываем счетчик для каждого объявления
                             details = self._parse_details(ad)
+                            self.screenshot_dir = temp_dir  # Restore main screenshot dir
+                            
                             if details:
                                 self.logger.info(f"New ad: {details}")
                         except Exception as ex:
@@ -289,16 +468,28 @@ class AutoruParser:
                             continue
                 else:
                     self.logger.info("No new ads found.")
-                    self._human_delay(5, 10)
-                self._human_delay(5, 10)
+                    self._human_delay(10, 15)
+                
+                # Longer delay between main parsing cycles
+                self._human_delay(15, 30)
+            
             except Exception as ex:
                 self.logger.error(f"Unhandled error: {ex} \n Возможна блокировка IP или другая ошибка. Перезапуск через 5 минут.")
-                self.driver.quit()
+                self._take_screenshot("unhandled_error")
+                consecutive_errors += 1
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    self.logger.error(f"Reached {max_consecutive_errors} consecutive errors. Reinitializing driver...")
+                    self.driver.quit()
+                    self.driver = self._init_driver()
+                    consecutive_errors = 0
+                
                 self._human_delay(300, 350)
-                self.driver = self._init_driver()
+            
             finally:
                 self.logger.info("Iteration complete.")
 
 if __name__ == '__main__':
-    parser = AutoruParser()
+    # Можно настроить параметры при запуске
+    parser = AutoruParser(max_screenshots=10, max_screenshot_dirs=5)
     parser.parse()
