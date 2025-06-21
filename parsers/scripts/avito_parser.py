@@ -114,7 +114,7 @@ class AvitoParser:
         exclude_values = {"Проверить в Автотеке", "Неизвестно", "Нет данных"}
 
         try:
-            li_elements = self.driver.find_elements(By.CSS_SELECTOR, "li[class^='params-paramsList__item']")
+            li_elements = self.driver.find_elements(By.CSS_SELECTOR, "div[data-marker='item-view/item-params'] ul li")
             
             for li in li_elements:
                 try:
