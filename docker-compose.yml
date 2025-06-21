@@ -29,6 +29,7 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-StrongRedisPassword123!}
       - TZ=${TZ:-UTC}
       - WEBSITE_URL=${WEBSITE_URL:-https://example.com}
     command: python manage.py runserver 0.0.0.0:8000
@@ -72,17 +73,15 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-StrongRedisPassword123!}", "ping"]
       interval: 30s
       retries: 3
       start_period: 30s
       timeout: 10s
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     restart: unless-stopped
     environment:
       - TZ=${TZ:-UTC}
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-StrongRedisPassword123!} --protected-mode yes
     networks:
       - app_network
     deploy:
@@ -113,6 +112,7 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-StrongRedisPassword123!}
       - TZ=${TZ:-UTC}
       - WEBSITE_URL=${WEBSITE_URL:-https://example.com}
     command: python bot/tg_bot.py
@@ -158,6 +158,7 @@ services:
       - .env
     environment:
       - TZ=${TZ:-UTC}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-StrongRedisPassword123!}
     command: sh -c "sleep 10 && python parsers/manager.py"
     restart: unless-stopped
     networks:
@@ -189,6 +190,7 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-StrongRedisPassword123!}
       - TZ=${TZ:-UTC}
       - WEBSITE_URL=${WEBSITE_URL:-https://example.com}
       - ADS_CLEANUP_DAYS=${ADS_CLEANUP_DAYS:-7}

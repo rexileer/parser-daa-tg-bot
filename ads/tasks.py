@@ -8,7 +8,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 from .models import Advertisement
-from config import REDIS_HOST, REDIS_PORT
+from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ async def save_ads_from_redis_to_db():
     """
     Save all advertisements from Redis to the database before they expire
     """
-    redis_client = await aioredis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+    redis_client = await aioredis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, decode_responses=True)
     
     try:
         # Get all keys from Redis

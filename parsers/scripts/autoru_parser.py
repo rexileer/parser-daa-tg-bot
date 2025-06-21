@@ -12,12 +12,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-from config import REDIS_HOST, REDIS_PORT
+from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 class AutoruParser:
-    def __init__(self, filters=None, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0, max_screenshots=20, max_screenshot_dirs=10):
+    def __init__(self, filters=None, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0, max_screenshots=20, max_screenshot_dirs=10, redis_password=REDIS_PASSWORD):
         self.filters = filters or {}
-        self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
+        self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=redis_db, password=redis_password, decode_responses=True)
         self.driver = self._init_driver()
         self.logger = self._init_logger()
         self.screenshot_dir = self._init_screenshot_dir()

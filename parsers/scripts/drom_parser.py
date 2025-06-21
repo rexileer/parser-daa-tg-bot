@@ -11,12 +11,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
 from fake_useragent import UserAgent, FakeUserAgentError
-from config import REDIS_HOST, REDIS_PORT
+from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 class DromParser:
-    def __init__(self, filters=None, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0):
+    def __init__(self, filters=None, redis_host=REDIS_HOST, redis_port=REDIS_PORT, redis_db=0, redis_password=REDIS_PASSWORD):
         self.filters = filters or {}
-        self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
+        self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=redis_db, password=redis_password, decode_responses=True)
         self.driver = self._init_driver()
         self.logger = self._init_logger()
     
