@@ -84,7 +84,11 @@ async def update_user_filter(user_id: int, field: str, value):
     elif isinstance(model_field, ArrayField) and isinstance(value, str) and "," in value:
         new_values = [v.strip() for v in value.split(",")]
         setattr(filters, field, new_values)
-    # Обычное текстовое поле или одно значение для ArrayField
+    # Если это ArrayField, но значение - одиночная строка
+    elif isinstance(model_field, ArrayField) and isinstance(value, str):
+        # Преобразуем одиночное значение в список с одним элементом
+        setattr(filters, field, [value])
+    # Обычное текстовое поле
     else:
         setattr(filters, field, value)
     

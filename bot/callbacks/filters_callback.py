@@ -71,7 +71,24 @@ async def save_filter_value(message: Message, state: FSMContext):
         await message.answer("❌ Ошибка: фильтр не найден.")
         return
     
-    await update_user_filter(user_id, filter_name, filter_value)  # Сохраняем в БД
+    # Получаем информацию о поле из модели
+    from users.models import UserFilters
+    model_field = UserFilters._meta.get_field(filter_name)
+    
+    # Проверяем, является ли поле массивом
+    from django.contrib.postgres.fields import ArrayField
+    if isinstance(model_field, ArrayField):
+        # Для полей-массивов разделяем значения по запятой
+        if "," in filter_value:
+            values = [v.strip() for v in filter_value.split(",")]
+            await update_user_filter(user_id, filter_name, values)
+        else:
+            # Для одиночного значения создаём список с одним элементом
+            await update_user_filter(user_id, filter_name, [filter_value])
+    else:
+        # Для обычных полей сохраняем как есть
+        await update_user_filter(user_id, filter_name, filter_value)
+    
     await message.answer(f"✅ Фильтр {filter_name_rus} обновлён: {filter_value}", reply_markup=filter_keyboard_back_button(filter_name=filter_name_rus))
     
     await state.clear()  # Очищаем состояние
@@ -142,9 +159,25 @@ async def save_filter_value_inline(callback: CallbackQuery):
         user_id = callback.from_user.id
         filter_name_eng = FILTER_MAPPING_LANGUAGE.get(filter_name_rus)  # Достаём сохранённый фильтр
         
-        await update_user_filter(user_id, filter_name_eng, value)  # Сохраняем в БД
-        
+        # Получаем текущие значения фильтра
         current_values = await get_user_filter_values(user_id, filter_name_eng)
+        
+        # Если значение уже выбрано - удаляем его, иначе добавляем
+        if value in current_values:
+            # Удаляем значение из списка
+            if isinstance(current_values, list):
+                current_values.remove(value)
+        else:
+            # Добавляем значение в список
+            if not current_values:
+                current_values = [value]
+            elif isinstance(current_values, list):
+                current_values.append(value)
+            else:
+                current_values = [current_values, value]
+        
+        await update_user_filter(user_id, filter_name_eng, current_values)  # Сохраняем в БД
+        
         keyboard = filter_keyboard(filter_name_rus, current_values, page=1)
         
         await callback.message.edit_reply_markup(reply_markup=keyboard)  # Обновляем клавиатуру
