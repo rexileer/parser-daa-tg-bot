@@ -6,6 +6,7 @@ import logging
 import redis
 import os
 import shutil
+import pickle
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -28,32 +29,105 @@ class AutoruParser:
     
     def _init_driver(self):
         options = webdriver.ChromeOptions()
-        # Используем фиксированный desktop user agent
-        desktop_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        # Используем более современный и распространенный user-agent
+        desktop_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
         options.add_argument(f'user-agent={desktop_ua}')
+        
+        # Базовые настройки
         options.add_argument('--headless')
-        options.add_argument('start-maximized')
-        options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
-        options.add_argument('--incognito')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument("--disable-images")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--blink-settings=imagesEnabled=false")
-        options.add_argument("--disable-blink-features=AutomationControlled")
+        
+        # Улучшенная маскировка автоматизации
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        # Реалистичное разрешение экрана
+        options.add_argument('--window-size=1920,1080')
+        
+        # Включаем JavaScript и изображения для более естественного поведения
+        options.add_argument('--enable-javascript')
+        
+        # Отключаем некоторые оптимизации для более стабильной работы
         options.add_argument("--disable-background-timer-throttling")
         options.add_argument("--disable-backgrounding-occluded-windows")
         options.add_argument("--disable-client-side-phishing-detection")
         options.add_argument("--disable-popup-blocking")
         options.add_argument("--disable-renderer-backgrounding")
-        options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
-        options.add_experimental_option('useAutomationExtension', False)
+        
+        # Отключаем режим инкогнито для сохранения cookies
+        # options.add_argument('--incognito')
+        
         driver = webdriver.Remote(
             command_executor="http://chrome_driver:4444/wd/hub",
             options=options,
         )
-        driver.implicitly_wait(1)
+        
+        # Скрываем факт использования WebDriver с помощью JavaScript
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
+        # Случайное время ожидания для имитации человеческого поведения
+        driver.implicitly_wait(random.uniform(3, 7))
+        
         return driver
+    
+    def _save_cookies(self):
+        """Сохраняет cookies текущей сессии"""
+        try:
+            with open('autoru_cookies.pkl', 'wb') as file:
+                pickle.dump(self.driver.get_cookies(), file)
+            self.logger.info("Cookies успешно сохранены")
+        except Exception as e:
+            self.logger.error(f"Ошибка при сохранении cookies: {e}")
+
+    def _load_cookies(self):
+        """Загружает сохраненные cookies"""
+        try:
+            if os.path.exists('autoru_cookies.pkl'):
+                with open('autoru_cookies.pkl', 'rb') as file:
+                    cookies = pickle.load(file)
+                    # Сначала нужно открыть сайт, чтобы установить домен для cookies
+                    self.driver.get("https://auto.ru")
+                    time.sleep(2)
+                    for cookie in cookies:
+                        try:
+                            self.driver.add_cookie(cookie)
+                        except:
+                            pass
+                self.logger.info("Cookies успешно загружены")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Ошибка при загрузке cookies: {e}")
+            return False
+    
+    def _human_behavior(self):
+        """Имитирует человеческое поведение на странице (не более 3 секунд)"""
+        try:
+            # Короткая задержка
+            time.sleep(random.uniform(0.3, 0.7))
+            
+            # Простой скролл страницы (не требует поиска элементов)
+            scroll_height = random.randint(100, 300)
+            self.driver.execute_script(f"window.scrollTo(0, {scroll_height});")
+            
+            # Используем JavaScript для наведения на случайные элементы без риска stale reference
+            self.driver.execute_script("""
+                var elements = document.querySelectorAll('a, button');
+                if (elements.length > 0) {
+                    var randomElement = elements[Math.floor(Math.random() * elements.length)];
+                    if (randomElement) {
+                        randomElement.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    }
+                }
+            """)
+            
+            # Короткая задержка в конце
+            time.sleep(random.uniform(0.3, 0.7))
+        except Exception as e:
+            self.logger.warning(f"Ошибка при имитации поведения: {e}")
+            # Продолжаем выполнение даже при ошибках
     
     def _init_logger(self):
         logging.basicConfig(level=logging.INFO)
@@ -167,7 +241,9 @@ class AutoruParser:
                 link = ad.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
                 ad_id = self._extract_autoru_id(link)
                 try:
-                    ad_service = ad.find_element(By.CSS_SELECTOR, "div[class='ListingItemServices ListingItem__services']")
+                    ad_service = WebDriverWait(ad, 1).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='ListingItemServices ListingItem__services']"))
+                    )
                     ad_type = "продвижение"
                 except:
                     ad_type = "обычное"
@@ -266,34 +342,49 @@ class AutoruParser:
         }
     
     def _parse_details(self, ad):
-        self.driver.get(ad['link'])
         try:
-            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img")))
-        except Exception as e:
-            self.logger.error(f"Ошибка ожидания загрузки изображений: {e}")
-            self._take_screenshot("image_loading_error")
-            return None
-        self._human_delay(1, 3)
-        
-        try:
+            # Устанавливаем короткое неявное ожидание для ускорения
+            self.driver.implicitly_wait(2)
+            self.driver.get(ad['link'])
+            
+            # Используем короткое явное ожидание с таймаутом 5 секунд вместо 10
+            try:
+                WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "h1, img.ImageGalleryDesktop__image"))
+                )
+            except Exception as e:
+                self.logger.error(f"Ошибка ожидания загрузки страницы: {e}")
+                self._take_screenshot("page_loading_error")
+                return None
+            
+            # Уменьшаем задержку
+            time.sleep(random.uniform(0.5, 1.0))
+            
             extracted_info = self._extract_info(ad['link'])
             if not extracted_info:
                 self.logger.error(f"Не удалось извлечь информацию из URL: {ad['link']}")
                 return None
+            
             # Если тип объявления "new/group", используем новые характеристики
             characteristics = self._parse_characteristics_new() if extracted_info[0] == "new/group" else self._parse_characteristics()
-            # Парсинг картинки
-            try:
-                image = self.driver.find_element(By.CSS_SELECTOR, "img[class='ImageGalleryDesktop__image']").get_attribute("src")
-            except:
-                image = ""
-            # Парсинг заголовка
-            try:
-                title = self.driver.find_element(By.CSS_SELECTOR, "h1").text
-            except Exception as e:
-                self.logger.error(f"Не удалось получить заголовок: {e}")
-                title = ""
+            
+            # Собираем все данные через одну функцию с обработкой ошибок
+            def get_element_safely(selector, attribute=None, default=""):
+                try:
+                    element = WebDriverWait(self.driver, 1).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    if attribute:
+                        return element.get_attribute(attribute)
+                    return element.text
+                except:
+                    return default
+            
+            # Парсинг картинки и заголовка
+            image = get_element_safely("img.ImageGalleryDesktop__image", "src")
+            title = get_element_safely("h1")
             title_parts = title.rsplit(", ", 1)
+            
             # Сборка деталей
             details = {
                 "platform": "autoru",
@@ -301,8 +392,8 @@ class AutoruParser:
                 "name": title_parts[0] if len(title_parts) > 1 else title,
                 "year": title_parts[1] if len(title_parts) > 1 else None,
                 "image": image,
-                "price": self.driver.find_element(By.CSS_SELECTOR, "span[class='OfferPriceCaption__price']").text,
-                "city": self.driver.find_element(By.CSS_SELECTOR, "div[class^='CardSellerNamePlace2__address'] span[class^='MetroListPlace__regionName']").text,
+                "price": get_element_safely("span.OfferPriceCaption__price"),
+                "city": get_element_safely("div[class^='CardSellerNamePlace2__address'] span[class^='MetroListPlace__regionName']"),
                 "brand": extracted_info[1] if extracted_info else None,
                 "model": extracted_info[2] if extracted_info else None,
                 "mileage": characteristics.get('Пробег'),
@@ -317,19 +408,26 @@ class AutoruParser:
                 "ad_type": ad['ad_type'],
                 "seller": "автодилер" if extracted_info and extracted_info[0] == "new/group" else "частное лицо",
             }
+            
             ad_id = self._extract_autoru_id(ad['link'])
             normalized_details = self._normalize_car_data(details)
             self.redis_client.setex(f"{ad_id}", 1800, json.dumps(normalized_details, ensure_ascii=False))
             self.logger.info(f"Saved ad {ad_id} to Redis")
             return normalized_details
+            
         except Exception as ex:
             self.logger.error(f"Error parsing ad details: {ex}")
             self._take_screenshot("detail_parsing_error")
-        return None
+            return None
+        finally:
+            # Восстанавливаем стандартное неявное ожидание
+            self.driver.implicitly_wait(3)
     
     def _cookies_accept(self):
         try:
-            accept_cookies = self.driver.find_element(By.CSS_SELECTOR, "a[id='confirm-button']")
+            accept_cookies = WebDriverWait(self.driver, 2).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "a[id='confirm-button']"))
+            )
             accept_cookies.click()
             self.logger.info("Cookies accepted")
         except Exception as e:
@@ -346,14 +444,19 @@ class AutoruParser:
                 self.screenshot_count = 0  # Сбрасываем счетчик скриншотов
                 self._cleanup_old_screenshots()  # Очищаем старые директории
                 
-                # Reset cookies and create a new session
-                self.driver.delete_all_cookies()
+                # Пытаемся загрузить cookies, если они есть
+                cookies_loaded = self._load_cookies()
+                
                 url = "https://auto.ru/rossiya/cars/all/?sort=cr_date-desc"
                 self.logger.info("Opening auto.ru")
                 self.driver.get(url)
                 self.driver.implicitly_wait(10)
                 self.logger.info("Opened auto.ru")
                 
+                # Имитируем человеческое поведение
+                self._human_behavior()
+                
+                self.logger.info("Имитация человеческого поведения прошла")
                 # Take a screenshot to see what's on the page
                 self._take_screenshot("initial_page")
                 
@@ -382,6 +485,9 @@ class AutoruParser:
                     
                     # Take screenshot of the page content
                     self._take_screenshot("before_listings_wait")
+                    
+                    # Имитируем человеческое поведение перед поиском объявлений
+                    self._human_behavior()
                     
                     # Try to find different ad container selectors (site might change)
                     selectors = [
@@ -469,6 +575,9 @@ class AutoruParser:
                 else:
                     self.logger.info("No new ads found.")
                     self._human_delay(10, 15)
+                
+                # Сохраняем cookies после успешного парсинга
+                self._save_cookies()
                 
                 # Longer delay between main parsing cycles
                 self._human_delay(15, 30)

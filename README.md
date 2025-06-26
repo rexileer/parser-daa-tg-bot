@@ -28,7 +28,7 @@ POSTGRES_HOST=db
 POSTGRES_PORT=5432
 REDIS_HOST=redis
 REDIS_PORT=6379
-WEBSITE_URL=https://your-domain.com  # Должен быть публичный HTTPS URL, не localhost
+WEBSITE_URL=https://your-domain.com
 ```
 
 ### 3. Запуск проекта с Docker
@@ -108,6 +108,3 @@ docker-compose up -d web ads_sync
 ### Интеграция с Telegram ботом:
 
 В Telegram боте добавлена команда `/all_ads` и кнопка "Смотреть все объявления", которые перенаправляют пользователя на веб-интерфейс, где можно просмотреть все доступные объявления с удобной фильтрацией.
-
-**Важно**: Для корректной работы кнопок в Telegram необходимо указать публичный HTTPS URL в переменной окружения `WEBSITE_URL`. Telegram не принимает URL с localhost или HTTP протоколом.
-
