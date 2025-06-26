@@ -194,18 +194,20 @@ class AutoruParser:
         time.sleep(random.uniform(min_time, max_time))
     
     def _check_for_captcha(self):
-        """Check if a CAPTCHA is present on the page"""
+        """Check if a CAPTCHA is present on the page - быстрая проверка через JavaScript"""
         try:
-            captcha_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'captcha')]")
-            if captcha_elements:
+            # Используем JavaScript для быстрой проверки без ожидания
+            captcha_detected = self.driver.execute_script("""
+                const pageText = document.body.innerText.toLowerCase();
+                return pageText.includes('captcha') || 
+                       pageText.includes('recaptcha') || 
+                       pageText.includes('hcaptcha') ||
+                       !!document.querySelector('iframe[src*="captcha"]');
+            """)
+            
+            if captcha_detected:
                 self._take_screenshot("captcha_detected")
                 self.logger.warning("CAPTCHA detected on the page")
-                return True
-                
-            # Also check for common CAPTCHA providers
-            if "recaptcha" in self.driver.page_source.lower() or "hcaptcha" in self.driver.page_source.lower():
-                self._take_screenshot("captcha_detected")
-                self.logger.warning("CAPTCHA provider detected on the page")
                 return True
                 
             return False
@@ -214,47 +216,70 @@ class AutoruParser:
             return False
     
     def _check_for_block(self):
-        """Check if we've been blocked or restricted"""
+        """Check if we've been blocked or restricted - быстрая проверка через JavaScript"""
         try:
-            block_texts = [
-                "доступ ограничен", 
-                "заблокирован", 
-                "подозрительная активность",
-                "временно недоступен"
-            ]
-            page_text = self.driver.page_source.lower()
-            for text in block_texts:
-                if text in page_text:
-                    self._take_screenshot("access_blocked")
-                    self.logger.warning(f"Access potentially blocked: '{text}' found on page")
-                    return True
+            # Используем JavaScript для быстрой проверки без ожидания
+            block_detected = self.driver.execute_script("""
+                const pageText = document.body.innerText.toLowerCase();
+                return pageText.includes('доступ ограничен') || 
+                       pageText.includes('заблокирован') || 
+                       pageText.includes('подозрительная активность') ||
+                       pageText.includes('временно недоступен');
+            """)
+            
+            if block_detected:
+                self._take_screenshot("access_blocked")
+                self.logger.warning("Access potentially blocked")
+                return True
             return False
         except Exception as e:
             self.logger.error(f"Error checking for blocks: {e}")
             return False
         
     def _parse_ads(self):
-        ads = self.driver.find_elements(By.CSS_SELECTOR, "div[data-seo='listing-item']")
-        new_ads = []
-        for ad in ads[:10]:
-            try:
-                link = ad.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-                ad_id = self._extract_autoru_id(link)
+        try:
+            # Уменьшаем неявное ожидание для ускорения
+            self.driver.implicitly_wait(1)
+            
+            # Используем более быстрый поиск элементов
+            ads = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[data-seo='listing-item'], div.ListingItem"))
+            )
+            
+            self.logger.info(f"Найдено {len(ads)} объявлений на странице")
+            new_ads = []
+            
+            # Собираем все ссылки и ID сразу, без обработки каждого элемента отдельно
+            for ad in ads[:10]:
                 try:
-                    ad_service = WebDriverWait(ad, 1).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='ListingItemServices ListingItem__services']"))
+                    link_element = WebDriverWait(ad, 1).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "a"))
                     )
-                    ad_type = "продвижение"
-                except:
+                    link = link_element.get_attribute("href")
+                    ad_id = self._extract_autoru_id(link)
+                    
+                    # Быстрая проверка на тип объявления
                     ad_type = "обычное"
-                self.logger.info(f"Processing ad {ad_id}")
-                if not self.redis_client.exists(f"{ad_id}"):
-                    new_ads.append({'link': link, 'ad_type': ad_type})
-            except Exception as ex:
-                self.logger.error(f"Error processing ad: {ex}")
-                continue
-        self.logger.info(f"Found {len(new_ads)} new ads")
-        return new_ads
+                    try:
+                        if ad.find_elements(By.CSS_SELECTOR, "div[class*='ListingItemServices']"):
+                            ad_type = "продвижение"
+                    except:
+                        pass
+                    
+                    self.logger.info(f"Processing ad {ad_id}")
+                    
+                    # Проверяем наличие в Redis без блокировки
+                    if not self.redis_client.exists(f"{ad_id}"):
+                        new_ads.append({'link': link, 'ad_type': ad_type, 'ad_id': ad_id})
+                except Exception as ex:
+                    self.logger.error(f"Error processing ad: {ex}")
+                    continue
+                
+            self.logger.info(f"Found {len(new_ads)} new ads")
+            return new_ads
+        finally:
+            # Восстанавливаем стандартное неявное ожидание
+            self.driver.implicitly_wait(3)
     
     def _parse_characteristics(self):
         characteristics = {}
@@ -425,13 +450,31 @@ class AutoruParser:
     
     def _cookies_accept(self):
         try:
-            accept_cookies = WebDriverWait(self.driver, 2).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "a[id='confirm-button']"))
-            )
-            accept_cookies.click()
-            self.logger.info("Cookies accepted")
+            # Уменьшаем время ожидания до 0.5 секунды
+            self.driver.implicitly_wait(0.5)
+            
+            # Быстрая проверка наличия кнопки принятия cookies через JavaScript
+            cookie_button_exists = self.driver.execute_script("""
+                return !!document.querySelector("a#confirm-button");
+            """)
+            
+            if cookie_button_exists:
+                # Если кнопка есть, кликаем по ней через JavaScript для мгновенного действия
+                self.driver.execute_script("""
+                    const button = document.querySelector("a#confirm-button");
+                    if (button) button.click();
+                """)
+                self.logger.info("Cookies accepted via JavaScript")
+                return True
+            else:
+                self.logger.info("Кнопка принятия cookies не найдена")
+                return False
         except Exception as e:
             self.logger.info("Не удалось принять cookies, возможно их нет на странице.")
+            return False
+        finally:
+            # Восстанавливаем стандартное ожидание
+            self.driver.implicitly_wait(3)
     
     def parse(self):
         consecutive_errors = 0
@@ -457,10 +500,14 @@ class AutoruParser:
                 self._human_behavior()
                 
                 self.logger.info("Имитация человеческого поведения прошла")
+                
+                # Принимаем cookies сразу после загрузки страницы, до скриншота
+                self._cookies_accept()
+                
                 # Take a screenshot to see what's on the page
                 self._take_screenshot("initial_page")
                 
-                # Check for CAPTCHA or blocks
+                # Быстрая проверка CAPTCHA и блокировки
                 if self._check_for_captcha() or self._check_for_block():
                     self.logger.error("Detected CAPTCHA or access restriction. Waiting before retry...")
                     self._human_delay(300, 360)  # Wait longer if blocked
@@ -471,10 +518,6 @@ class AutoruParser:
                         self.driver = self._init_driver()
                         consecutive_errors = 0
                     continue
-                
-                # Accept cookies if present
-                self._cookies_accept()
-                self._human_delay(3, 5)
                 
                 # Try to find listing items with better error handling
                 try:
@@ -556,19 +599,31 @@ class AutoruParser:
                     # Ограничиваем количество обрабатываемых объявлений
                     max_ads_to_process = min(len(new_ads), 10)  # Обрабатываем максимум 10 объявлений
                     
-                    for ad in new_ads[:max_ads_to_process]:
+                    # Предварительно загружаем все объявления в список для параллельной обработки
+                    ads_to_process = new_ads[:max_ads_to_process]
+                    
+                    # Обработка объявлений с минимальными задержками
+                    for ad in ads_to_process:
                         try:
                             count += 1
-                            self.logger.info(f"Processing ad {count}/{max_ads_to_process}")
+                            # Используем ad_id из предварительно собранных данных
+                            ad_id = ad.get('ad_id', self._extract_autoru_id(ad['link']))
+                            self.logger.info(f"Processing ad details {count}/{max_ads_to_process} (ID: {ad_id})")
+                            
                             # Set temporary screenshot dir for this ad
                             temp_dir = self.screenshot_dir
                             self.screenshot_dir = ads_dir
                             self.screenshot_count = 0  # Сбрасываем счетчик для каждого объявления
+                            
+                            # Обрабатываем объявление с минимальной задержкой
                             details = self._parse_details(ad)
                             self.screenshot_dir = temp_dir  # Restore main screenshot dir
                             
+                            # Минимальная задержка между объявлениями
+                            time.sleep(random.uniform(0.3, 0.7))
+                            
                             if details:
-                                self.logger.info(f"New ad: {details}")
+                                self.logger.info(f"Saved ad: {ad_id}")
                         except Exception as ex:
                             self.logger.error(f"Error processing ad: {ex}")
                             continue
