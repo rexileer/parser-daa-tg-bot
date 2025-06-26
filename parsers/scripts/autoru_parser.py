@@ -476,6 +476,84 @@ class AutoruParser:
             # Восстанавливаем стандартное ожидание
             self.driver.implicitly_wait(3)
     
+    def _check_auth_page(self):
+        """Проверяет, отображается ли страница авторизации"""
+        try:
+            # Проверяем URL - самый надежный способ определить страницу авторизации
+            current_url = self.driver.current_url
+            
+            # Если URL содержит auth.auto.ru или passport.yandex - это точно страница авторизации
+            if "auth.auto.ru" in current_url or "passport.yandex" in current_url:
+                self._take_screenshot("auth_page_detected")
+                self.logger.error(f"Обнаружена страница авторизации по URL: {current_url}")
+                return True
+            
+            # Если мы на основном домене, проверяем содержимое страницы
+            if "auto.ru" in current_url and "auth" not in current_url:
+                # Проверяем наличие объявлений - если они есть, то это не страница авторизации
+                has_listings = self.driver.execute_script("""
+                    return !!document.querySelector('div[data-seo="listing-item"]') || 
+                           !!document.querySelector('div.ListingItem');
+                """)
+                
+                if has_listings:
+                    return False
+                
+                # Если объявлений нет, проверяем наличие элементов авторизации
+                has_auth_elements = self.driver.execute_script("""
+                    return !!document.querySelector('button[data-testid="login-button"]') || 
+                           !!document.querySelector('a[href*="yandex"]') ||
+                           document.title.toLowerCase().includes('вход');
+                """)
+                
+                if has_auth_elements:
+                    self._take_screenshot("possible_auth_page")
+                    self.logger.warning(f"Возможная страница авторизации на {current_url}")
+                    return True
+            
+            return False
+        except Exception as e:
+            self.logger.error(f"Ошибка при проверке страницы авторизации: {e}")
+            return False
+
+    def _bypass_auth_redirect(self):
+        """Пытается обойти редирект на страницу авторизации"""
+        try:
+            self.logger.info("Пытаемся обойти редирект на страницу авторизации")
+            
+            # Метод 1: Используем JavaScript для изменения User-Agent
+            self.driver.execute_script("""
+                Object.defineProperty(navigator, 'userAgent', {
+                    get: function () { return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'; }
+                });
+            """)
+            
+            # Метод 2: Добавляем заголовки через CDP
+            self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+                "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                "acceptLanguage": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"
+            })
+            
+            # Метод 3: Пробуем открыть страницу с параметром, который может обойти проверку
+            url = "https://auto.ru/rossiya/cars/all/?sort=cr_date-desc&from=direct"
+            self.logger.info(f"Открываем URL с параметрами обхода: {url}")
+            self.driver.get(url)
+            
+            # Даем время на загрузку
+            time.sleep(3)
+            
+            # Проверяем, удалось ли обойти редирект
+            if "auth.auto.ru" not in self.driver.current_url and "passport.yandex" not in self.driver.current_url:
+                self.logger.info("Успешно обошли редирект на авторизацию")
+                return True
+            else:
+                self.logger.error("Не удалось обойти редирект на авторизацию")
+                return False
+            
+        except Exception as e:
+            self.logger.error(f"Ошибка при попытке обойти редирект: {e}")
+            return False
+    
     def parse(self):
         consecutive_errors = 0
         max_consecutive_errors = 3
@@ -493,7 +571,7 @@ class AutoruParser:
                 url = "https://auto.ru/rossiya/cars/all/?sort=cr_date-desc"
                 self.logger.info("Opening auto.ru")
                 self.driver.get(url)
-                self.driver.implicitly_wait(10)
+                self.driver.implicitly_wait(3)
                 self.logger.info("Opened auto.ru")
                 
                 # Имитируем человеческое поведение
@@ -506,6 +584,25 @@ class AutoruParser:
                 
                 # Take a screenshot to see what's on the page
                 self._take_screenshot("initial_page")
+                
+                # Проверяем страницу авторизации
+                if self._check_auth_page():
+                    self.logger.error("Обнаружена страница авторизации. Пробуем обойти редирект...")
+                    
+                    # Пробуем обойти редирект на авторизацию
+                    if self._bypass_auth_redirect():
+                        self.logger.info("Редирект успешно обойден, продолжаем парсинг")
+                    else:
+                        # Пробуем обновить страницу один раз
+                        self.logger.info("Пробуем обновить страницу...")
+                        self.driver.refresh()
+                        time.sleep(3)  # Даем время на загрузку
+                        
+                        # Проверяем еще раз после обновления
+                        if self._check_auth_page():
+                            self.logger.error("После обновления снова обнаружена страница авторизации. Требуется вход в аккаунт.")
+                            self._human_delay(60, 120)  # Ждем перед следующей попыткой
+                            continue
                 
                 # Быстрая проверка CAPTCHA и блокировки
                 if self._check_for_captcha() or self._check_for_block():
@@ -522,7 +619,7 @@ class AutoruParser:
                 # Try to find listing items with better error handling
                 try:
                     # First, check if page loaded at all
-                    WebDriverWait(self.driver, 20).until(
+                    WebDriverWait(self.driver, 10).until(
                         EC.visibility_of_element_located((By.TAG_NAME, "body"))
                     )
                     
@@ -532,31 +629,22 @@ class AutoruParser:
                     # Имитируем человеческое поведение перед поиском объявлений
                     self._human_behavior()
                     
-                    # Try to find different ad container selectors (site might change)
-                    selectors = [
-                        "div[class='ListingItem']", 
-                        "div[data-seo='listing-item']",
-                        "div[class*='listing']"
-                    ]
-                    
-                    # Try each selector
-                    found = False
-                    for selector in selectors:
-                        try:
-                            self.logger.info(f"Trying selector: {selector}")
-                            WebDriverWait(self.driver, 30).until(
-                                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                            )
-                            self.logger.info(f"Found elements with selector: {selector}")
-                            found = True
-                            break
-                        except Exception as e:
-                            self.logger.warning(f"Selector {selector} failed: {e}")
-                    
-                    if not found:
-                        raise Exception("No listings found with any known selectors")
-                        
-                    self.logger.info("Объявления загружены, начинаем парсинг")
+                    # Пробуем найти объявления напрямую, без перебора селекторов
+                    try:
+                        self.logger.info("Ищем объявления на странице...")
+                        WebDriverWait(self.driver, 15).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-seo='listing-item'], div.ListingItem"))
+                        )
+                        self.logger.info("Объявления загружены, начинаем парсинг")
+                    except Exception as e:
+                        # Если объявления не найдены, проверяем еще раз на страницу авторизации
+                        if self._check_auth_page():
+                            self.logger.error("Обнаружена страница авторизации при поиске объявлений")
+                            self._take_screenshot("auth_page_during_search")
+                            self._human_delay(60, 120)
+                            continue
+                        else:
+                            raise Exception(f"Не удалось найти объявления: {e}")
                     
                 except Exception as e:
                     self._take_screenshot("waiting_error")
